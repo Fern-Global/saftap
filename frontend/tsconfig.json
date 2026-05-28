@@ -1,0 +1,28 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react-jsx",
+    "types": [
+      "react",
+      "react-native",
+      "node"
+    ],
+    "noEmit": true,
+    "paths": {
+      "@saftap/shared": [
+        "../packages/shared/src"
+      ],
+      "@saftap/shared/*": [
+        "../packages/shared/src/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
