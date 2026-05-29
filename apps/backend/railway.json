@@ -1,0 +1,4 @@
+{
+  "build": { "builder": "NIXPACKS" },
+  "deploy": { "startCommand": "node dist/index.js", "healthcheckPath": "/health" }
+}
