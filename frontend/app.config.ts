@@ -1,4 +1,11 @@
+import "dotenv/config";
 import type { ConfigContext, ExpoConfig } from "@expo/config";
+
+const apiUrl =
+  process.env.API_BASE_URL ??
+  (process.env.NODE_ENV === "production"
+    ? "https://saftap-backend.up.railway.app"
+    : "http://localhost:4000/api");
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -6,10 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: config.slug ?? "saftap",
   extra: {
     ...config.extra,
-    apiUrl:
-      process.env.NODE_ENV === "production"
-        ? "https://saftap-backend.up.railway.app"
-        : "http://localhost:3000",
+    apiUrl,
   },
   plugins: [...(config.plugins ?? []), "expo-camera", "expo-secure-store", "expo-barcode-scanner"],
 });

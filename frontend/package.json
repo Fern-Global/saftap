@@ -6,6 +6,7 @@
   "scripts": {
     "build": "expo export",
     "dev": "pnpm --filter @saftap/shared build && expo start",
+    "web": "pnpm --filter @saftap/shared build && expo start --web",
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -39,6 +40,7 @@
     "@babel/plugin-transform-class-properties": "^7.29.7",
     "@babel/plugin-transform-private-methods": "^7.29.7",
     "@babel/plugin-transform-private-property-in-object": "^7.29.7",
-    "@types/react": "~18.2.79"
+    "@types/react": "~18.2.79",
+    "dotenv": "^16.6.1"
   }
 }

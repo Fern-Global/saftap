@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
+import Constants from "expo-constants";
 import {
   StyleSheet,
   Text,
@@ -21,13 +22,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from "@expo-google-fonts/syne";
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono";
-import { 
-  Home, 
-  CreditCard, 
-  Send as SendIcon, 
-  User, 
-  History, 
-  MoreVertical, 
+import {
+  Home,
+  CreditCard,
+  Send as SendIcon,
+  User,
+  History,
+  MoreVertical,
   ChevronLeft,
   ArrowUpRight,
   ArrowDownLeft,
@@ -62,7 +63,10 @@ import { theme } from "./theme";
 
 const { width } = Dimensions.get("window");
 
-const API_BASE_URL = "http://localhost:4000/api"; // Update with your local IP for physical devices
+const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiUrl ??
+  Constants.manifest?.extra?.apiUrl ??
+  "http://localhost:4000/api";
 
 type Tab = "home" | "wallet" | "history" | "profile" | "mpesa_send" | "paybill" | "buy_goods" | "success" | "request" | "payment" | "pochi" | "login" | "signup" | "verify_2fa";
 
@@ -112,7 +116,7 @@ export default function App() {
   const [accountNumber, setAccountNumber] = useState("");
   const [tillNumber, setTillNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const [usdcBalance, setUsdcBalance] = useState(2480.50);
   const [marketRate, setMarketRate] = useState(128.84);
   const [showRateConfirm, setShowRateConfirm] = useState(false);
@@ -302,9 +306,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Email Address</Text>
           <View style={styles.inputBox}>
             <Mail size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="name@example.com" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="name@example.com"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -316,9 +320,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Password</Text>
           <View style={styles.inputBox}>
             <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="Your password" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="Your password"
               placeholderTextColor={theme.colors.textSecondary}
               secureTextEntry
               value={password}
@@ -326,8 +330,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isProcessing}
           >
@@ -356,9 +360,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Email Address</Text>
           <View style={styles.inputBox}>
             <Mail size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="name@example.com" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="name@example.com"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -370,9 +374,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Phone Number</Text>
           <View style={styles.inputBox}>
             <Phone size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="+254..." 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="+254..."
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="phone-pad"
               value={phone}
@@ -383,9 +387,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Password</Text>
           <View style={styles.inputBox}>
             <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="At least 8 characters" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="At least 8 characters"
               placeholderTextColor={theme.colors.textSecondary}
               secureTextEntry
               value={password}
@@ -396,9 +400,9 @@ export default function App() {
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Confirm Password</Text>
           <View style={styles.inputBox}>
             <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
-              placeholder="Repeat password" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]}
+              placeholder="Repeat password"
               placeholderTextColor={theme.colors.textSecondary}
               secureTextEntry
               value={confirmPassword}
@@ -406,8 +410,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
             onPress={handleSignup}
             disabled={isProcessing}
           >
@@ -438,9 +442,9 @@ export default function App() {
         <View style={styles.formContainer}>
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Verification Code</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium"), fontSize: 24, textAlign: 'center', letterSpacing: 8 }]} 
-              placeholder="000000" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium"), fontSize: 24, textAlign: 'center', letterSpacing: 8 }]}
+              placeholder="000000"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="number-pad"
               maxLength={6}
@@ -449,8 +453,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]}
             onPress={handleVerify2FA}
             disabled={isProcessing}
           >
@@ -481,9 +485,9 @@ export default function App() {
         <View style={styles.formContainer}>
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Business Phone Number</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="e.g. 0712345678" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="e.g. 0712345678"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="phone-pad"
               value={phoneNumber}
@@ -493,9 +497,9 @@ export default function App() {
 
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Amount (KES)</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="0.00" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="0.00"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={amount}
@@ -503,8 +507,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]}
             disabled={!phoneNumber || !amount || isProcessing}
             onPress={handlePayment}
           >
@@ -539,7 +543,7 @@ export default function App() {
           <Text style={[styles.labelCaps, { color: 'rgba(255,255,255,0.7)', fontFamily: getFont("DMSans_700Bold") }]}>TOTAL BALANCE</Text>
           <Wallet color="#FFF" size={20} />
         </View>
-        
+
         <View style={styles.balanceContent}>
           <Text style={[styles.balanceValue, { fontFamily: getFont("Syne_700Bold") }]}>
             KES {(usdcBalance * 128.84).toLocaleString('en-US', {minimumFractionDigits: 2})}
@@ -559,7 +563,7 @@ export default function App() {
           </View>
           <Text style={[styles.scanBtnText, { fontFamily: getFont("DMSans_700Bold") }]}>Scan to Pay</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.rightActionColumn}>
           <TouchableOpacity style={styles.smallActionBtn} onPress={() => navigateTo("wallet")}>
             <Plus color={theme.colors.primary} size={24} />
@@ -588,13 +592,13 @@ export default function App() {
       </View>
 
       {allTransactions.slice(0, 3).map(tx => (
-        <ActivityItem 
-          key={tx.id} 
-          title={tx.title} 
-          sub={tx.sub} 
-          amount={tx.amount} 
-          type={tx.type} 
-          category={tx.category} 
+        <ActivityItem
+          key={tx.id}
+          title={tx.title}
+          sub={tx.sub}
+          amount={tx.amount}
+          type={tx.type}
+          category={tx.category}
         />
       ))}
 
@@ -645,9 +649,9 @@ export default function App() {
         <Text style={[styles.labelSmall, { fontFamily: getFont("DMSans_700Bold") }]}>ENTER DEPOSIT AMOUNT</Text>
         <View style={styles.amountInputBox}>
           <Text style={[styles.currencySymbol, { fontFamily: getFont("Syne_700Bold") }]}>$</Text>
-          <TextInput 
-            style={[styles.mainAmountInput, { fontFamily: getFont("Syne_700Bold") }]} 
-            value={amount} 
+          <TextInput
+            style={[styles.mainAmountInput, { fontFamily: getFont("Syne_700Bold") }]}
+            value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
             placeholder="0"
@@ -696,20 +700,20 @@ export default function App() {
         <Text style={[styles.pageSub, { fontFamily: getFont("DMSans_400Regular") }]}>Track your global spending and local payments.</Text>
 
         <View style={styles.historyTabs}>
-          <TouchableOpacity 
-            style={[styles.historyTab, historyTab === "all" && styles.historyTabActive]} 
+          <TouchableOpacity
+            style={[styles.historyTab, historyTab === "all" && styles.historyTabActive]}
             onPress={() => setHistoryTab("all")}
           >
             <Text style={[styles.historyTabText, historyTab === "all" && styles.historyTabTextActive]}>All</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.historyTab, historyTab === "spent" && styles.historyTabActive]} 
+          <TouchableOpacity
+            style={[styles.historyTab, historyTab === "spent" && styles.historyTabActive]}
             onPress={() => setHistoryTab("spent")}
           >
             <Text style={[styles.historyTabText, historyTab === "spent" && styles.historyTabTextActive]}>Spent</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.historyTab, historyTab === "received" && styles.historyTabActive]} 
+          <TouchableOpacity
+            style={[styles.historyTab, historyTab === "received" && styles.historyTabActive]}
             onPress={() => setHistoryTab("received")}
           >
             <Text style={[styles.historyTabText, historyTab === "received" && styles.historyTabTextActive]}>Received</Text>
@@ -719,13 +723,13 @@ export default function App() {
         <Text style={[styles.dateHeader, { fontFamily: getFont("DMSans_700Bold") }]}>RECENT TRANSACTIONS</Text>
 
         {filteredTransactions.map(tx => (
-          <ActivityItem 
-            key={tx.id} 
-            title={tx.title} 
-            sub={tx.sub} 
-            amount={tx.amount} 
-            type={tx.type} 
-            category={tx.category} 
+          <ActivityItem
+            key={tx.id}
+            title={tx.title}
+            sub={tx.sub}
+            amount={tx.amount}
+            type={tx.type}
+            category={tx.category}
           />
         ))}
 
@@ -880,9 +884,9 @@ export default function App() {
         <View style={styles.formContainer}>
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Recipient Phone Number</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="e.g. 0712345678" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="e.g. 0712345678"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="phone-pad"
               value={phoneNumber}
@@ -892,9 +896,9 @@ export default function App() {
 
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Amount (KES)</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="0.00" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="0.00"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={amount}
@@ -902,8 +906,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]}
             disabled={!phoneNumber || !amount || isProcessing}
             onPress={handlePayment}
           >
@@ -928,9 +932,9 @@ export default function App() {
         <View style={styles.formContainer}>
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Business Number</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="e.g. 888888" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="e.g. 888888"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={bizNumber}
@@ -940,9 +944,9 @@ export default function App() {
 
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Account Number</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="e.g. ACC-123" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="e.g. ACC-123"
               placeholderTextColor={theme.colors.textSecondary}
               value={accountNumber}
               onChangeText={setAccountNumber}
@@ -951,9 +955,9 @@ export default function App() {
 
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Amount (KES)</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="0.00" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="0.00"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={amount}
@@ -961,8 +965,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, (!bizNumber || !accountNumber || !amount) && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, (!bizNumber || !accountNumber || !amount) && styles.buttonDisabled]}
             disabled={!bizNumber || !accountNumber || !amount || isProcessing}
             onPress={handlePayment}
           >
@@ -987,9 +991,9 @@ export default function App() {
         <View style={styles.formContainer}>
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Till Number</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="e.g. 123456" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="e.g. 123456"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={tillNumber}
@@ -999,9 +1003,9 @@ export default function App() {
 
           <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Amount (KES)</Text>
           <View style={styles.inputBox}>
-            <TextInput 
-              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-              placeholder="0.00" 
+            <TextInput
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+              placeholder="0.00"
               placeholderTextColor={theme.colors.textSecondary}
               keyboardType="numeric"
               value={amount}
@@ -1009,8 +1013,8 @@ export default function App() {
             />
           </View>
 
-          <TouchableOpacity 
-            style={[styles.primaryButton, (!tillNumber || !amount) && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[styles.primaryButton, (!tillNumber || !amount) && styles.buttonDisabled]}
             disabled={!tillNumber || !amount || isProcessing}
             onPress={handlePayment}
           >
@@ -1036,9 +1040,9 @@ export default function App() {
           <View style={styles.formContainer}>
             <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Request From (Phone/Wallet)</Text>
             <View style={styles.inputBox}>
-              <TextInput 
-                style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-                placeholder="0x... or 07..." 
+              <TextInput
+                style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+                placeholder="0x... or 07..."
                 placeholderTextColor={theme.colors.textSecondary}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -1047,9 +1051,9 @@ export default function App() {
 
             <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Amount (KES)</Text>
             <View style={styles.inputBox}>
-              <TextInput 
-                style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]} 
-                placeholder="0.00" 
+              <TextInput
+                style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium") }]}
+                placeholder="0.00"
                 placeholderTextColor={theme.colors.textSecondary}
                 keyboardType="numeric"
                 value={amount}
@@ -1068,8 +1072,8 @@ export default function App() {
               <Text style={styles.conversionSub}>Rates are updated every 5s from Chainlink</Text>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]} 
+            <TouchableOpacity
+              style={[styles.primaryButton, (!phoneNumber || !amount) && styles.buttonDisabled]}
               disabled={!phoneNumber || !amount}
               onPress={() => setShowRateConfirm(true)}
             >
@@ -1099,15 +1103,15 @@ export default function App() {
             </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity 
-                style={[styles.secondaryButton, { flex: 1 }]} 
+              <TouchableOpacity
+                style={[styles.secondaryButton, { flex: 1 }]}
                 onPress={() => setShowRateConfirm(false)}
               >
                 <Text style={[styles.secondaryButtonText, { fontFamily: getFont("DMSans_700Bold") }]}>Reject Rate</Text>
               </TouchableOpacity>
               <View style={{ width: 16 }} />
-              <TouchableOpacity 
-                style={[styles.primaryButton, { flex: 2, marginTop: 0 }]} 
+              <TouchableOpacity
+                style={[styles.primaryButton, { flex: 2, marginTop: 0 }]}
                 onPress={() => {
                   setIsProcessing(true);
                   setTimeout(() => {
@@ -1131,8 +1135,8 @@ export default function App() {
       <CheckCircle2 size={80} color={theme.colors.primary} style={{ marginBottom: 24 }} />
       <Text style={[styles.successTitle, { fontFamily: getFont("Syne_700Bold") }]}>Payment Successful</Text>
       <Text style={[styles.successSub, { fontFamily: getFont("DMSans_400Regular") }]}>Your SafTap payment has been processed and settled instantly.</Text>
-      <TouchableOpacity 
-        style={[styles.primaryButton, { width: '100%', marginTop: 40 }]} 
+      <TouchableOpacity
+        style={[styles.primaryButton, { width: '100%', marginTop: 40 }]}
         onPress={() => {
           setAmount(""); setPhoneNumber(""); setBizNumber(""); setAccountNumber(""); setTillNumber("");
           navigateTo("home");
@@ -1220,8 +1224,8 @@ const ActivityItem = ({ title, sub, amount, type, category }: any) => (
 );
 
 const QuickAmount = ({ value, current, onPress }: any) => (
-  <TouchableOpacity 
-    style={[styles.quickAmountBtn, current === value && styles.quickAmountBtnActive]} 
+  <TouchableOpacity
+    style={[styles.quickAmountBtn, current === value && styles.quickAmountBtnActive]}
     onPress={() => onPress(value)}
   >
     <Text style={[styles.quickAmountText, current === value && styles.quickAmountTextActive]}>${value}</Text>
@@ -1265,7 +1269,7 @@ const styles = StyleSheet.create({
   brandText: { fontSize: 22, color: theme.colors.textMain },
   notificationBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border },
   notificationDot: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.accentRed, borderWidth: 2, borderColor: theme.colors.surface },
-  
+
   welcomeText: { fontSize: 16, color: theme.colors.textSecondary, marginBottom: 24 },
 
   // Balance Card
