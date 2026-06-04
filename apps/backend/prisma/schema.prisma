@@ -16,16 +16,18 @@ enum TransactionStatus {
 }
 
 model User {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique
-  phone        String        @unique
-  passwordHash String
-  role         String        @default("TOURIST")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  wallet       Wallet?
-  transactions Transaction[]
-  savedPayees  SavedPayee[]
+  id                 String        @id @default(uuid()) @db.Uuid
+  email              String        @unique
+  phone              String        @unique
+  passwordHash       String
+  role               String        @default("TOURIST")
+  twoFactorSecret    String?
+  isTwoFactorEnabled Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  wallet             Wallet?
+  transactions       Transaction[]
+  savedPayees        SavedPayee[]
 }
 
 model Wallet {

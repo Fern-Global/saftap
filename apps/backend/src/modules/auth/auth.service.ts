@@ -1,10 +1,23 @@
 import bcrypt from "bcrypt";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import { Prisma, type User } from "@prisma/client";
+import { OTP, NobleCryptoPlugin, ScureBase32Plugin } from "otplib";
+const authenticator = new OTP({
+  strategy: "totp",
+  crypto: new NobleCryptoPlugin(),
+  base32: new ScureBase32Plugin(),
+});
+import qrcode from "qrcode";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../shared/errors.js";
 import * as WalletService from "../wallet/wallet.service.js";
-import type { AuthResponse, AuthTokenPayload, LoginDto, RegisterTouristDto } from "./auth.types.js";
+import type { 
+  AuthResponse, 
+  AuthTokenPayload, 
+  LoginDto, 
+  RegisterTouristDto, 
+  TwoFactorSetupResponse 
+} from "./auth.types.js";
 
 const PASSWORD_HASH_ROUNDS = 12;
 const JWT_EXPIRES_IN = "24h";
@@ -100,11 +113,76 @@ export async function login(data: LoginDto): Promise<AuthResponse> {
     throw new AppError("Invalid email or password", 401);
   }
 
+  if (user.isTwoFactorEnabled) {
+    if (!data.totpCode) {
+      return {
+        requiresTwoFactor: true,
+        userId: user.id,
+      };
+    }
+
+    if (!user.twoFactorSecret) {
+      throw new AppError("2FA is enabled but secret is missing", 500, false);
+    }
+
+    const result = await authenticator.verify({
+      token: data.totpCode,
+      secret: user.twoFactorSecret,
+    });
+
+    if (!result.valid) {
+      throw new AppError("Invalid 2FA code", 401);
+    }
+  }
+
   if (!user.wallet) {
     throw new AppError("Wallet not found for user", 500, false);
   }
 
   return buildAuthResponse(user, user.wallet.baseAddress);
+}
+
+export async function setupTwoFactor(userId: string): Promise<TwoFactorSetupResponse> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const secret = authenticator.generateSecret();
+  const otpauth = authenticator.generateURI({
+    issuer: "Saftap",
+    label: user.email,
+    secret,
+  });
+  const qrCodeUrl = await qrcode.toDataURL(otpauth);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorSecret: secret },
+  });
+
+  return { secret, qrCodeUrl };
+}
+
+export async function verifyAndEnableTwoFactor(userId: string, code: string): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.twoFactorSecret) {
+    throw new AppError("2FA setup not initiated", 400);
+  }
+
+  const result = await authenticator.verify({
+    token: code,
+    secret: user.twoFactorSecret,
+  });
+
+  if (!result.valid) {
+    throw new AppError("Invalid 2FA code", 400);
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isTwoFactorEnabled: true },
+  });
 }
 
 /**

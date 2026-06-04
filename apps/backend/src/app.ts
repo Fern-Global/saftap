@@ -7,7 +7,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import { authRouter } from "./modules/auth/auth.routes.js";
+import authRouter from "./modules/auth/auth.routes.js";
 import { authenticateJWT } from "./modules/auth/auth.middleware.js";
 import { walletRouter } from "./modules/wallet/wallet.routes.js";
 import { paymentRouter } from "./modules/payment/payment.routes.js";
