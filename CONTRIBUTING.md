@@ -58,54 +58,54 @@ If the container already exists but is stopped:
 docker start saftap-postgres
 ```
 
-## 4. Generate Prisma client
+## 4. Generate Prisma client and run database setup
 
-From the repo root:
+From the repo root, run:
 
 ```bash
 pnpm --filter @saftap/backend prisma:generate
-```
-
-Or from `apps/backend`:
-
-```bash
-pnpm prisma generate
-```
-
-## 5. Run migrations
-
-From `apps/backend`:
-
-```bash
-pnpm prisma migrate dev --name init
-```
-
-Or from the repo root:
-
-```bash
 pnpm --filter @saftap/backend prisma:migrate
-```
-
-## 6. Seed the database
-
-From `apps/backend`:
-
-```bash
-pnpm prisma db seed
-```
-
-Or from the repo root:
-
-```bash
 pnpm --filter @saftap/backend prisma:seed
 ```
 
-## 7. Start local development
+If you prefer the backend package directory:
 
-Run the full monorepo development stack from the repo root:
+```bash
+cd apps/backend
+pnpm prisma generate
+pnpm prisma migrate dev --name init
+pnpm prisma db seed
+```
+
+## 5. Configure frontend environment
+
+Create frontend env files:
+
+```bash
+cp frontend/.env.example frontend/.env
+cp apps/backend/.env.example apps/backend/.env
+```
+
+Then update `frontend/.env` and `apps/backend/.env` with the correct values.
+
+## 6. Start local development
+
+From the repo root, run:
 
 ```bash
 pnpm dev
+```
+
+To start only the frontend app in native mode:
+
+```bash
+pnpm --filter @saftap/mobile dev
+```
+
+To start the frontend in web mode:
+
+```bash
+pnpm --filter @saftap/mobile web
 ```
 
 To start only the backend:
@@ -114,7 +114,7 @@ To start only the backend:
 pnpm --filter @saftap/backend dev
 ```
 
-## 8. Verify the backend
+## 7. Verify the backend
 
 Run backend tests:
 
