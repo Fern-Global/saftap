@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Pressable,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from "@expo-google-fonts/syne";
@@ -53,12 +54,17 @@ import {
   Zap,
   Store,
   LayoutGrid,
+  Lock,
+  Mail,
+  Phone,
 } from "lucide-react-native";
 import { theme } from "./theme";
 
 const { width } = Dimensions.get("window");
 
-type Tab = "home" | "wallet" | "history" | "profile" | "mpesa_send" | "paybill" | "buy_goods" | "success" | "request" | "payment" | "pochi";
+const API_BASE_URL = "http://localhost:4000/api"; // Update with your local IP for physical devices
+
+type Tab = "home" | "wallet" | "history" | "profile" | "mpesa_send" | "paybill" | "buy_goods" | "success" | "request" | "payment" | "pochi" | "login" | "signup" | "verify_2fa";
 
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
@@ -70,10 +76,20 @@ export default function App() {
     JetBrainsMono_500Medium,
   });
 
-  const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [activeTab, setActiveTab] = useState<Tab>("login");
   const [historyTab, setHistoryTab] = useState<"all" | "spent" | "received">("all");
   const [profileSection, setProfileSection] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  // Auth States
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [totpCode, setTotpCode] = useState("");
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   // Mock Transactions Data
   const allTransactions = [
@@ -97,7 +113,6 @@ export default function App() {
   const [tillNumber, setTillNumber] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Demo Mock Data
   const [usdcBalance, setUsdcBalance] = useState(2480.50);
   const [marketRate, setMarketRate] = useState(128.84);
   const [showRateConfirm, setShowRateConfirm] = useState(false);
@@ -131,6 +146,125 @@ export default function App() {
     setActiveTab(tab);
   };
 
+  const handleLogout = () => {
+    setAuthToken(null);
+    setAuthUser(null);
+    navigateTo("login");
+  };
+
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const handleSignup = async () => {
+    if (!validateEmail(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert("Error", "Password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert("Error", "Passwords do not match");
+      return;
+    }
+    if (phone.length < 7) {
+      Alert.alert("Error", "Please enter a valid phone number");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, phone, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Signup failed");
+      }
+
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      Alert.alert("Success", "Account created successfully!");
+      navigateTo("home");
+    } catch (error: any) {
+      Alert.alert("Signup Failed", error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, totpCode: totpCode || undefined }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Login failed");
+      }
+
+      if (data.requiresTwoFactor) {
+        setPendingUserId(data.userId);
+        navigateTo("verify_2fa");
+        return;
+      }
+
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      navigateTo("home");
+    } catch (error: any) {
+      Alert.alert("Login Failed", error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (totpCode.length !== 6) {
+      Alert.alert("Error", "Please enter a 6-digit code");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, totpCode }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Verification failed");
+      }
+
+      setAuthToken(data.token);
+      setAuthUser(data.user);
+      navigateTo("home");
+    } catch (error: any) {
+      Alert.alert("Verification Failed", error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handlePayment = () => {
     setIsProcessing(true);
     setTimeout(() => {
@@ -152,6 +286,186 @@ export default function App() {
   const getFont = (base: string) => fontsLoaded ? base : Platform.OS === 'ios' ? 'System' : 'sans-serif';
 
   // --- SCREEN RENDERS ---
+
+  const renderLogin = () => (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+      <ScrollView contentContainerStyle={styles.scrollPadding}>
+        <View style={[styles.centered, { marginTop: 60, marginBottom: 40 }]}>
+          <View style={[styles.modalIconBg, { backgroundColor: theme.colors.primary }]}>
+            <Lock size={40} color="#FFF" />
+          </View>
+          <Text style={[styles.brandText, { fontFamily: getFont("Syne_700Bold"), fontSize: 32, marginTop: 16 }]}>SafTap</Text>
+          <Text style={[styles.welcomeText, { fontFamily: getFont("DMSans_400Regular") }]}>Secure your travel funds</Text>
+        </View>
+
+        <View style={styles.formContainer}>
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Email Address</Text>
+          <View style={styles.inputBox}>
+            <Mail size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="name@example.com" 
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 24 }]}>Password</Text>
+          <View style={styles.inputBox}>
+            <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="Your password" 
+              placeholderTextColor={theme.colors.textSecondary}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+            onPress={handleLogin}
+            disabled={isProcessing}
+          >
+            {isProcessing ? <ActivityIndicator color="#FFF" /> : <Text style={[styles.primaryButtonText, { fontFamily: getFont("DMSans_700Bold") }]}>Sign In</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ marginTop: 24, alignItems: 'center' }} onPress={() => navigateTo("signup")}>
+            <Text style={[styles.infoSub, { fontFamily: getFont("DMSans_500Medium") }]}>
+              Don't have an account? <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Sign Up</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+
+  const renderSignup = () => (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+      <ScrollView contentContainerStyle={styles.scrollPadding}>
+        <View style={[styles.centered, { marginTop: 40, marginBottom: 30 }]}>
+          <Text style={[styles.brandText, { fontFamily: getFont("Syne_700Bold"), fontSize: 28 }]}>Create Account</Text>
+          <Text style={[styles.welcomeText, { fontFamily: getFont("DMSans_400Regular") }]}>Join SafTap for seamless payments</Text>
+        </View>
+
+        <View style={styles.formContainer}>
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Email Address</Text>
+          <View style={styles.inputBox}>
+            <Mail size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="name@example.com" 
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Phone Number</Text>
+          <View style={styles.inputBox}>
+            <Phone size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="+254..." 
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+          </View>
+
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Password</Text>
+          <View style={styles.inputBox}>
+            <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="At least 8 characters" 
+              placeholderTextColor={theme.colors.textSecondary}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+          </View>
+
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular"), marginTop: 20 }]}>Confirm Password</Text>
+          <View style={styles.inputBox}>
+            <Lock size={20} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("DMSans_400Regular"), flex: 1 }]} 
+              placeholder="Repeat password" 
+              placeholderTextColor={theme.colors.textSecondary}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+            onPress={handleSignup}
+            disabled={isProcessing}
+          >
+            {isProcessing ? <ActivityIndicator color="#FFF" /> : <Text style={[styles.primaryButtonText, { fontFamily: getFont("DMSans_700Bold") }]}>Sign Up</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ marginTop: 24, alignItems: 'center' }} onPress={() => navigateTo("login")}>
+            <Text style={[styles.infoSub, { fontFamily: getFont("DMSans_500Medium") }]}>
+              Already have an account? <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>Sign In</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+
+  const renderVerify2FA = () => (
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+      <ScrollView contentContainerStyle={styles.scrollPadding}>
+        <View style={[styles.centered, { marginTop: 60, marginBottom: 40 }]}>
+          <View style={[styles.modalIconBg, { backgroundColor: theme.colors.primary }]}>
+            <ShieldCheck size={40} color="#FFF" />
+          </View>
+          <Text style={[styles.brandText, { fontFamily: getFont("Syne_700Bold"), fontSize: 28, marginTop: 16 }]}>2FA Verification</Text>
+          <Text style={[styles.welcomeText, { fontFamily: getFont("DMSans_400Regular"), textAlign: 'center' }]}>Enter the 6-digit code from your authenticator app.</Text>
+        </View>
+
+        <View style={styles.formContainer}>
+          <Text style={[styles.label, { fontFamily: getFont("DMSans_400Regular") }]}>Verification Code</Text>
+          <View style={styles.inputBox}>
+            <TextInput 
+              style={[styles.formInput, { fontFamily: getFont("JetBrainsMono_500Medium"), fontSize: 24, textAlign: 'center', letterSpacing: 8 }]} 
+              placeholder="000000" 
+              placeholderTextColor={theme.colors.textSecondary}
+              keyboardType="number-pad"
+              maxLength={6}
+              value={totpCode}
+              onChangeText={setTotpCode}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.primaryButton, isProcessing && styles.buttonDisabled]} 
+            onPress={handleVerify2FA}
+            disabled={isProcessing}
+          >
+            {isProcessing ? <ActivityIndicator color="#FFF" /> : <Text style={[styles.primaryButtonText, { fontFamily: getFont("DMSans_700Bold") }]}>Verify & Login</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={{ marginTop: 24, alignItems: 'center' }} onPress={() => navigateTo("login")}>
+            <Text style={[styles.infoSub, { fontFamily: getFont("DMSans_500Medium"), color: theme.colors.primary }]}>
+              Back to Sign In
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 
   const renderPochi = () => (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
@@ -313,7 +627,7 @@ export default function App() {
         <View style={styles.cardDetailsRow}>
           <View>
             <Text style={styles.cardLabel}>CARD HOLDER</Text>
-            <Text style={[styles.cardValue, { fontFamily: getFont("DMSans_700Bold") }]}>ALEX RIVERA</Text>
+            <Text style={[styles.cardValue, { fontFamily: getFont("DMSans_700Bold") }]}>{authUser?.email?.split('@')[0]?.toUpperCase() || 'ALEX RIVERA'}</Text>
           </View>
           <View>
             <Text style={styles.cardLabel}>EXPIRY</Text>
@@ -477,10 +791,9 @@ export default function App() {
             <View style={{ width: 40 }} />
           </View>
           <View style={styles.menuGroup}>
-            <View style={styles.menuItem}><Text style={styles.menuLabel}>Full Name: James Oduya</Text></View>
-            <View style={styles.menuItem}><Text style={styles.menuLabel}>Email: james.oduya@gmail.com</Text></View>
-            <View style={styles.menuItem}><Text style={styles.menuLabel}>Phone: +254 712 345 678</Text></View>
-            <View style={styles.menuItem}><Text style={styles.menuLabel}>Address: Kisumu, Kenya</Text></View>
+            <View style={styles.menuItem}><Text style={styles.menuLabel}>Email: {authUser?.email}</Text></View>
+            <View style={styles.menuItem}><Text style={styles.menuLabel}>Phone: {authUser?.phone}</Text></View>
+            <View style={styles.menuItem}><Text style={styles.menuLabel}>ID: {authUser?.id}</Text></View>
           </View>
         </ScrollView>
       );
@@ -498,7 +811,6 @@ export default function App() {
           </View>
           <View style={styles.menuGroup}>
             <View style={styles.menuItem}><Text style={styles.menuLabel}>Two-Factor Auth: Enabled</Text></View>
-            <View style={styles.menuItem}><Text style={styles.menuLabel}>Biometric Lock: Active</Text></View>
             <View style={styles.menuItem}><Text style={styles.menuLabel}>Wallet Encryption: AES-256</Text></View>
           </View>
         </ScrollView>
@@ -517,10 +829,10 @@ export default function App() {
 
         <View style={styles.profileHeader}>
           <View style={styles.profileAvatarLarge}>
-            <Text style={[styles.profileAvatarTextLarge, { fontFamily: getFont("Syne_700Bold") }]}>JO</Text>
+            <Text style={[styles.profileAvatarTextLarge, { fontFamily: getFont("Syne_700Bold") }]}>{authUser?.email?.charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={[styles.profileName, { fontFamily: getFont("Syne_700Bold") }]}>James Oduya</Text>
-          <Text style={[styles.profileEmail, { fontFamily: getFont("DMSans_400Regular") }]}>james.oduya@gmail.com</Text>
+          <Text style={[styles.profileName, { fontFamily: getFont("Syne_700Bold") }]}>{authUser?.email?.split('@')[0]}</Text>
+          <Text style={[styles.profileEmail, { fontFamily: getFont("DMSans_400Regular") }]}>{authUser?.email}</Text>
           <View style={styles.tierBadge}>
             <ShieldCheck size={14} color={theme.colors.primary} />
             <Text style={[styles.tierText, { fontFamily: getFont("DMSans_700Bold") }]}>Verified Member</Text>
@@ -530,7 +842,7 @@ export default function App() {
         <View style={styles.walletAddressContainer}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.labelCaps, { marginBottom: 4, color: theme.colors.textSecondary }]}>WALLET ADDRESS</Text>
-            <Text style={[styles.addressText, { fontFamily: getFont("JetBrainsMono_500Medium") }]}>0x7a2...4b9e</Text>
+            <Text style={[styles.addressText, { fontFamily: getFont("JetBrainsMono_500Medium") }]}>{authUser?.walletAddress?.substring(0, 6)}...{authUser?.walletAddress?.substring(38)}</Text>
           </View>
           <TouchableOpacity style={styles.copyButton}>
             <Copy size={20} color={theme.colors.primary} />
@@ -544,7 +856,7 @@ export default function App() {
           <MenuItem icon={<Headset size={22} color={theme.colors.primary} />} label="Help & Support" />
         </View>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={22} color={theme.colors.accentRed} />
           <Text style={[styles.logoutText, { fontFamily: getFont("DMSans_700Bold") }]}>Log Out</Text>
         </TouchableOpacity>
@@ -835,6 +1147,9 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <View style={{ flex: 1 }}>
+        {activeTab === "login" && renderLogin()}
+        {activeTab === "signup" && renderSignup()}
+        {activeTab === "verify_2fa" && renderVerify2FA()}
         {activeTab === "home" && renderHome()}
         {activeTab === "wallet" && renderWallet()}
         {activeTab === "history" && renderHistory()}
@@ -869,7 +1184,7 @@ export default function App() {
       </Modal>
 
       {/* Bottom Nav */}
-      {!["mpesa_send", "paybill", "buy_goods", "request", "success", "payment", "pochi"].includes(activeTab) && (
+      {!["mpesa_send", "paybill", "buy_goods", "request", "success", "payment", "pochi", "login", "signup", "verify_2fa"].includes(activeTab) && (
         <View style={styles.bottomNav}>
           <TabButton icon={<Home size={24} />} label="Home" active={activeTab === "home"} onPress={() => navigateTo("home")} />
           <TabButton icon={<Wallet size={24} />} label="Wallet" active={activeTab === "wallet"} onPress={() => navigateTo("wallet")} />
@@ -1080,7 +1395,7 @@ const styles = StyleSheet.create({
   // Form Styles
   formContainer: { marginTop: 20 },
   label: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 12 },
-  inputBox: { backgroundColor: theme.colors.surface, borderRadius: 16, paddingHorizontal: 16, height: 60, justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border },
+  inputBox: { backgroundColor: theme.colors.surface, borderRadius: 16, paddingHorizontal: 16, height: 60, justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', alignItems: 'center' },
   formInput: { fontSize: 18, color: theme.colors.textMain },
   primaryButton: { backgroundColor: theme.colors.primary, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 40 },
   primaryButtonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },

@@ -1,10 +1,13 @@
-import { Router, type Router as ExpressRouter } from "express";
-import { login, register } from "./auth.controller.js";
+import { Router } from "express";
+import * as AuthController from "./auth.controller.js";
+import { authenticateJWT } from "./auth.middleware.js";
 
-/**
- * Express router for authentication endpoints.
- */
-export const authRouter: ExpressRouter = Router();
+const router = Router();
 
-authRouter.post("/register", register);
-authRouter.post("/login", login);
+router.post("/register", AuthController.register);
+router.post("/login", AuthController.login);
+
+router.post("/2fa/setup", authenticateJWT, AuthController.setupTwoFactor);
+router.post("/2fa/enable", authenticateJWT, AuthController.enableTwoFactor);
+
+export default router;

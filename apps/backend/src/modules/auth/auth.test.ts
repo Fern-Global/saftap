@@ -1,5 +1,11 @@
 import { Prisma, type User, type Wallet } from "@prisma/client";
 import bcrypt from "bcrypt";
+import { OTP, NobleCryptoPlugin, ScureBase32Plugin } from "otplib";
+const authenticator = new OTP({
+  strategy: "totp",
+  crypto: new NobleCryptoPlugin(),
+  base32: new ScureBase32Plugin(),
+});
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
@@ -7,6 +13,7 @@ const prismaMock = vi.hoisted(() => ({
     create: vi.fn(),
     delete: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
@@ -20,7 +27,7 @@ vi.mock("../../lib/prisma.js", () => ({
 
 vi.mock("../wallet/wallet.service.js", () => walletServiceMock);
 
-const { login, registerTourist } = await import("./auth.service.js");
+const { login, registerTourist, setupTwoFactor, verifyAndEnableTwoFactor } = await import("./auth.service.js");
 
 const mockUser: User = {
   id: "7ab52f4e-4ac8-4bb8-8190-af6b6026de09",
@@ -28,6 +35,8 @@ const mockUser: User = {
   phone: "+254700000001",
   passwordHash: "$2b$12$XD1ghuVQyUypTOmqyML5ju3y7IVhubCHqGbthDJMnIicM2uLYOVje",
   role: "TOURIST",
+  twoFactorSecret: null,
+  isTwoFactorEnabled: false,
   createdAt: new Date("2026-01-01T10:00:00.000Z"),
   updatedAt: new Date("2026-01-01T10:00:00.000Z"),
 };
@@ -71,16 +80,20 @@ describe("auth service", () => {
       },
     });
     expect(walletServiceMock.createWallet).toHaveBeenCalledWith(mockUser.id);
-    expect(result.user).toEqual({
-      id: mockUser.id,
-      email: mockUser.email,
-      phone: mockUser.phone,
-      walletAddress: mockWallet.baseAddress,
-    });
-    expect(result.token).toEqual(expect.any(String));
+    if ('user' in result) {
+      expect(result.user).toEqual({
+        id: mockUser.id,
+        email: mockUser.email,
+        phone: mockUser.phone,
+        walletAddress: mockWallet.baseAddress,
+      });
+      expect(result.token).toEqual(expect.any(String));
+    } else {
+      throw new Error("Expected AuthResponse with user and token");
+    }
   });
 
-  it("logs in a tourist with valid credentials", async () => {
+  it("logs in a tourist with valid credentials (no 2FA)", async () => {
     const passwordHash = await bcrypt.hash("correct-password", 12);
     prismaMock.user.findUnique.mockResolvedValue({
       ...mockUser,
@@ -97,8 +110,129 @@ describe("auth service", () => {
       where: { email: mockUser.email },
       include: { wallet: true },
     });
-    expect(result.user.walletAddress).toBe(mockWallet.baseAddress);
-    expect(result.token).toEqual(expect.any(String));
+    if ('user' in result) {
+      expect(result.user.walletAddress).toBe(mockWallet.baseAddress);
+      expect(result.token).toEqual(expect.any(String));
+    } else {
+      throw new Error("Expected AuthResponse with user and token");
+    }
+  });
+
+  it("returns requiresTwoFactor when 2FA is enabled but code not provided", async () => {
+    const passwordHash = await bcrypt.hash("correct-password", 12);
+    prismaMock.user.findUnique.mockResolvedValue({
+      ...mockUser,
+      passwordHash,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: "secret",
+      wallet: mockWallet,
+    });
+
+    const result = await login({
+      email: mockUser.email,
+      password: "correct-password",
+    });
+
+    expect(result).toEqual({
+      requiresTwoFactor: true,
+      userId: mockUser.id,
+    });
+  });
+
+  it("logs in with valid TOTP code when 2FA is enabled", async () => {
+    const secret = authenticator.generateSecret();
+    const totpCode = authenticator.generateSync({ secret });
+    const passwordHash = await bcrypt.hash("correct-password", 12);
+    
+    prismaMock.user.findUnique.mockResolvedValue({
+      ...mockUser,
+      passwordHash,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: secret,
+      wallet: mockWallet,
+    });
+
+    const result = await login({
+      email: mockUser.email,
+      password: "correct-password",
+      totpCode,
+    });
+
+    if ('user' in result) {
+      expect(result.user.walletAddress).toBe(mockWallet.baseAddress);
+    } else {
+      throw new Error("Expected AuthResponse with user and token");
+    }
+  });
+
+  it("rejects invalid TOTP code", async () => {
+    const secret = authenticator.generateSecret();
+    const passwordHash = await bcrypt.hash("correct-password", 12);
+    
+    prismaMock.user.findUnique.mockResolvedValue({
+      ...mockUser,
+      passwordHash,
+      isTwoFactorEnabled: true,
+      twoFactorSecret: secret,
+      wallet: mockWallet,
+    });
+
+    await expect(
+      login({
+        email: mockUser.email,
+        password: "correct-password",
+        totpCode: "000000",
+      })
+    ).rejects.toMatchObject({
+      statusCode: 401,
+      message: "Invalid 2FA code",
+    });
+  });
+
+  it("sets up 2FA secret and returns QR code", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(mockUser);
+    
+    const result = await setupTwoFactor(mockUser.id);
+    
+    expect(result.secret).toBeDefined();
+    expect(result.qrCodeUrl).toContain("data:image/png;base64");
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: mockUser.id },
+      data: { twoFactorSecret: expect.any(String) },
+    });
+  });
+
+  it("verifies and enables 2FA", async () => {
+    const secret = authenticator.generateSecret();
+    const code = authenticator.generateSync({ secret });
+    
+    prismaMock.user.findUnique.mockResolvedValue({
+      ...mockUser,
+      twoFactorSecret: secret,
+    });
+    
+    await verifyAndEnableTwoFactor(mockUser.id, code);
+    
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: mockUser.id },
+      data: { isTwoFactorEnabled: true },
+    });
+  });
+
+  it("rejects invalid code during 2FA enablement", async () => {
+    const secret = authenticator.generateSecret();
+    
+    prismaMock.user.findUnique.mockResolvedValue({
+      ...mockUser,
+      twoFactorSecret: secret,
+    });
+    
+    await expect(
+      verifyAndEnableTwoFactor(mockUser.id, "000000")
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Invalid 2FA code",
+    });
   });
 
   it("rejects invalid login credentials", async () => {

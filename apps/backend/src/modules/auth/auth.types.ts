@@ -18,6 +18,16 @@ export const loginSchema = z
   .object({
     email: z.string().trim().email("Email must be a valid email address").toLowerCase(),
     password: z.string().min(1, "Password is required"),
+    totpCode: z.string().length(6).optional(),
+  })
+  .strict();
+
+/**
+ * Zod schema for verifying and enabling 2FA.
+ */
+export const verifyTwoFactorSchema = z
+  .object({
+    code: z.string().length(6, "Code must be 6 digits"),
   })
   .strict();
 
@@ -29,6 +39,10 @@ export type RegisterTouristDto = z.infer<typeof registerTouristSchema>;
  * DTO representing login request data.
  */
 export type LoginDto = z.infer<typeof loginSchema>;
+/**
+ * DTO representing 2FA verification request data.
+ */
+export type VerifyTwoFactorDto = z.infer<typeof verifyTwoFactorSchema>;
 
 /**
  * Authenticated user details returned by auth endpoints.
@@ -51,7 +65,20 @@ export interface AuthTokenPayload {
 /**
  * Authentication response returned from login and registration calls.
  */
-export interface AuthResponse {
-  token: string;
-  user: AuthUser;
+export type AuthResponse = 
+  | {
+      token: string;
+      user: AuthUser;
+    }
+  | {
+      requiresTwoFactor: true;
+      userId: string;
+    };
+
+/**
+ * Response for 2FA setup.
+ */
+export interface TwoFactorSetupResponse {
+  secret: string;
+  qrCodeUrl: string;
 }

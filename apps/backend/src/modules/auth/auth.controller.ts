@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ZodError } from "zod";
 import { AppError } from "../../shared/errors.js";
-import { loginSchema, registerTouristSchema } from "./auth.types.js";
+import { loginSchema, registerTouristSchema, verifyTwoFactorSchema } from "./auth.types.js";
 import * as AuthService from "./auth.service.js";
 
 function getValidationMessage(error: ZodError): string {
@@ -27,6 +27,7 @@ function sendError(response: Response, error: unknown): void {
     return;
   }
 
+  console.error(error);
   response.status(500).json({ message: "Internal server error" });
 }
 
@@ -47,6 +48,28 @@ export async function login(request: Request, response: Response): Promise<void>
     const result = await AuthService.login(data);
 
     response.status(200).json(result);
+  } catch (error) {
+    sendError(response, error);
+  }
+}
+
+export async function setupTwoFactor(request: Request, response: Response): Promise<void> {
+  try {
+    // Assuming auth middleware sets request.user
+    const userId = (request as any).user.userId;
+    const result = await AuthService.setupTwoFactor(userId);
+    response.status(200).json(result);
+  } catch (error) {
+    sendError(response, error);
+  }
+}
+
+export async function enableTwoFactor(request: Request, response: Response): Promise<void> {
+  try {
+    const userId = (request as any).user.userId;
+    const { code } = verifyTwoFactorSchema.parse(request.body);
+    await AuthService.verifyAndEnableTwoFactor(userId, code);
+    response.status(200).json({ message: "2FA enabled successfully" });
   } catch (error) {
     sendError(response, error);
   }
