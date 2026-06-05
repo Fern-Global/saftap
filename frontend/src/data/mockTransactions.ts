@@ -1,0 +1,68 @@
+import type { Transaction } from "../types/models";
+
+export const mockTransactions: Transaction[] = [
+  {
+    id: "1",
+    title: "Java House, CBD",
+    sub: "Today · 12:45 PM",
+    amount: "- KES 2,450",
+    type: "out",
+    category: "Dining",
+  },
+  {
+    id: "2",
+    title: "Bolt Ride",
+    sub: "Today · 09:12 AM",
+    amount: "- KES 850",
+    type: "out",
+    category: "Transport",
+  },
+  {
+    id: "3",
+    title: "Transfer from USD Card",
+    sub: "Yesterday · 04:30 PM",
+    amount: "+ KES 50,000",
+    type: "in",
+    category: "Top Up",
+  },
+  {
+    id: "4",
+    title: "Carrefour, Mall",
+    sub: "Yesterday · 02:15 PM",
+    amount: "- KES 12,300",
+    type: "out",
+    category: "Groceries",
+  },
+  {
+    id: "5",
+    title: "Received from Alex",
+    sub: "Yesterday · 10:00 AM",
+    amount: "+ KES 5,000",
+    type: "in",
+    category: "Transfer",
+  },
+  {
+    id: "6",
+    title: "Netflix Subscription",
+    sub: "Oct 22 · 11:30 PM",
+    amount: "- KES 1,100",
+    type: "out",
+    category: "Entertainment",
+  },
+  {
+    id: "7",
+    title: "Top-up from Bank",
+    sub: "Oct 22 · 05:15 PM",
+    amount: "+ $500.00",
+    type: "in",
+    category: "Top Up",
+  },
+  {
+    id: "8",
+    title: "Aisha M.",
+    sub: "Oct 21 · 02:00 PM",
+    amount: "- $50.00",
+    type: "out",
+    category: "Transfer",
+  },
+];
