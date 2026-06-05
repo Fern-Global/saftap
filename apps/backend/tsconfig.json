@@ -8,7 +8,7 @@
     "moduleResolution": "NodeNext",
     "target": "ES2022",
     "types": ["node"],
-    "declaration": true,
+    "declaration": false,
     "sourceMap": true,
     "noEmit": false,
     "paths": {

@@ -20,6 +20,8 @@ describe("database layer", () => {
       phone: "+254700000001",
       passwordHash: "hashed-password",
       role: "TOURIST",
+      twoFactorSecret: null,
+      isTwoFactorEnabled: false,
       createdAt: new Date("2026-01-01T10:00:00.000Z"),
       updatedAt: new Date("2026-01-01T10:00:00.000Z"),
     };

@@ -8,7 +8,7 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { getOptionalEnv, getRequiredEnv } from "../../config/env.js";
 import { AppError, wrapExternalError } from "../../lib/app-error.js";
@@ -71,7 +71,7 @@ export const publicClient = createPublicClient({
   transport: http(getOptionalEnv("BASE_SEPOLIA_RPC_URL", baseSepolia.rpcUrls.default.http[0])),
 });
 
-function getTreasuryAccount() {
+function getTreasuryAccount(): PrivateKeyAccount {
   const privateKey = getRequiredEnv("TREASURY_PRIVATE_KEY");
 
   return privateKeyToAccount(privateKey.startsWith("0x") ? (privateKey as Hex) : `0x${privateKey}`);

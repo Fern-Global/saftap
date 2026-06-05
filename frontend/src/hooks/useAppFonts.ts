@@ -13,18 +13,15 @@ export const useAppFonts = () => {
     DMSans_700Bold,
     JetBrainsMono_500Medium,
   });
-  const [isReady, setIsReady] = useState(false);
+  const [fallbackReady, setFallbackReady] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsReady(true), 1500);
-
-    if (fontsLoaded || fontError) {
-      setIsReady(true);
-      clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setFallbackReady(true), 1500);
 
     return () => clearTimeout(timer);
-  }, [fontsLoaded, fontError]);
+  }, []);
+
+  const isReady = fontsLoaded || Boolean(fontError) || fallbackReady;
 
   const getFont = (base: string) =>
     fontsLoaded ? base : Platform.OS === "ios" ? "System" : "sans-serif";

@@ -3,11 +3,9 @@ import { AppError } from "../../shared/errors.js";
 import { verifyToken } from "./auth.service.js";
 import type { AuthTokenPayload } from "./auth.types.js";
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthTokenPayload;
-    }
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: AuthTokenPayload;
   }
 }
 

@@ -31,6 +31,16 @@ function sendError(response: Response, error: unknown): void {
   response.status(500).json({ message: "Internal server error" });
 }
 
+function getAuthenticatedUserId(request: Request): string {
+  const userId = request.user?.userId;
+
+  if (!userId) {
+    throw new AppError("Authentication is required", 401);
+  }
+
+  return userId;
+}
+
 export async function register(request: Request, response: Response): Promise<void> {
   try {
     const data = registerTouristSchema.parse(request.body);
@@ -55,8 +65,7 @@ export async function login(request: Request, response: Response): Promise<void>
 
 export async function setupTwoFactor(request: Request, response: Response): Promise<void> {
   try {
-    // Assuming auth middleware sets request.user
-    const userId = (request as any).user.userId;
+    const userId = getAuthenticatedUserId(request);
     const result = await AuthService.setupTwoFactor(userId);
     response.status(200).json(result);
   } catch (error) {
@@ -66,7 +75,7 @@ export async function setupTwoFactor(request: Request, response: Response): Prom
 
 export async function enableTwoFactor(request: Request, response: Response): Promise<void> {
   try {
-    const userId = (request as any).user.userId;
+    const userId = getAuthenticatedUserId(request);
     const { code } = verifyTwoFactorSchema.parse(request.body);
     await AuthService.verifyAndEnableTwoFactor(userId, code);
     response.status(200).json({ message: "2FA enabled successfully" });
