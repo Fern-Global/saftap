@@ -8,7 +8,8 @@
     "dev": "pnpm --filter @saftap/shared build && expo start",
     "web": "pnpm --filter @saftap/shared build && expo start --web",
     "lint": "eslint \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",
@@ -41,6 +42,7 @@
     "@babel/plugin-transform-private-methods": "^7.29.7",
     "@babel/plugin-transform-private-property-in-object": "^7.29.7",
     "@types/react": "~18.2.79",
-    "dotenv": "^16.6.1"
+    "dotenv": "^16.6.1",
+    "vitest": "^2.1.9"
   }
 }
