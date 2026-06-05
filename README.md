@@ -1,6 +1,6 @@
 # SafTap
 
-> **Bridging Global Liquidity to Local Commerce.**  
+> **Bridging Global Liquidity to Local Commerce.**
 > _The frictionless bridge for tourists to pay Kenyan merchants via USDC-to-M-PESA._
 
 [![Project Track](https://img.shields.io/badge/Track-DeFi%20%26%20Finance-blueviolet?style=for-the-badge)](https://zone01kisumu.ke/)
@@ -18,10 +18,10 @@
 
 ## The Problem
 
-1.  **High FX Fees:** Tourists lose 3-7% on foreign exchange bureaus or predatory bank card rates.
-2.  **Settlement Delays:** Merchants often wait days for international credit card settlements.
-3.  **Hardware Barriers:** Small-scale merchants (curio shops, local guides) cannot afford expensive POS terminals.
-4.  **Cash Risks:** Tourists carrying large amounts of cash are targets for theft.
+1. **High FX Fees:** Tourists lose 3-7% on foreign exchange bureaus or predatory bank card rates.
+2. **Settlement Delays:** Merchants often wait days for international credit card settlements.
+3. **Hardware Barriers:** Small-scale merchants (curio shops, local guides) cannot afford expensive POS terminals.
+4. **Cash Risks:** Tourists carrying large amounts of cash are targets for theft.
 
 ## The Solution
 
@@ -35,16 +35,17 @@ SafTap acts as a **Liquidity Bridge**:
 
 ## How It Works
 
-1.  **Invoice Generation:** The merchant enters the KES amount in the SafTap Mobile App.
-2.  **QR Trigger:** The app generates a dynamic QR code containing the KES-to-USDC conversion (via real-time Oracles).
-3.  **Payment:** The tourist scans and authorizes a USDC transfer (Stablecoin).
-4.  **Settlement:** The SafTap backend detects the on-chain success and instantly triggers an M-PESA B2C/C2B payout to the merchant's till.
+1. **Invoice Generation:** The merchant enters the KES amount in the SafTap Mobile App.
+2. **QR Trigger:** The app generates a dynamic QR code containing the KES-to-USDC conversion (via real-time Oracles).
+3. **Payment:** The tourist scans and authorizes a USDC transfer (Stablecoin).
+4. **Settlement:** The SafTap backend detects the on-chain success and instantly triggers an M-PESA B2C/C2B payout to the merchant's till.
 
 ---
 
 ## Technical Architecture
 
 ### Apps & Packages
+
 - `frontend`: **SoftPOS Interface.** A React Native (Expo) app for merchants to manage sales and generate payment QRs.
 - `apps/backend`: **The Settlement Engine.** A Node.js/TypeScript service that monitors the blockchain and integrates with the M-PESA Daraja API.
 - `packages/shared`: **The Core Logic.** Shared types, constants, and utility functions for cross-platform consistency.
@@ -88,6 +89,7 @@ SafTap acts as a **Liquidity Bridge**:
    Create `.env` files in `apps/backend` and `frontend` based on the provided `.env.example`.
 
 4. **Run the project:**
+
    ```bash
    # Start all services
    pnpm dev

@@ -65,7 +65,7 @@ export interface AuthTokenPayload {
 /**
  * Authentication response returned from login and registration calls.
  */
-export type AuthResponse = 
+export type AuthResponse =
   | {
       token: string;
       user: AuthUser;

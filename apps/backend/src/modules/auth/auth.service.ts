@@ -11,12 +11,12 @@ import qrcode from "qrcode";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../shared/errors.js";
 import * as WalletService from "../wallet/wallet.service.js";
-import type { 
-  AuthResponse, 
-  AuthTokenPayload, 
-  LoginDto, 
-  RegisterTouristDto, 
-  TwoFactorSetupResponse 
+import type {
+  AuthResponse,
+  AuthTokenPayload,
+  LoginDto,
+  RegisterTouristDto,
+  TwoFactorSetupResponse,
 } from "./auth.types.js";
 
 const PASSWORD_HASH_ROUNDS = 12;

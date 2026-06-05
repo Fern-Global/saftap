@@ -27,7 +27,8 @@ vi.mock("../../lib/prisma.js", () => ({
 
 vi.mock("../wallet/wallet.service.js", () => walletServiceMock);
 
-const { login, registerTourist, setupTwoFactor, verifyAndEnableTwoFactor } = await import("./auth.service.js");
+const { login, registerTourist, setupTwoFactor, verifyAndEnableTwoFactor } =
+  await import("./auth.service.js");
 
 const mockUser: User = {
   id: "7ab52f4e-4ac8-4bb8-8190-af6b6026de09",
@@ -80,7 +81,7 @@ describe("auth service", () => {
       },
     });
     expect(walletServiceMock.createWallet).toHaveBeenCalledWith(mockUser.id);
-    if ('user' in result) {
+    if ("user" in result) {
       expect(result.user).toEqual({
         id: mockUser.id,
         email: mockUser.email,
@@ -110,7 +111,7 @@ describe("auth service", () => {
       where: { email: mockUser.email },
       include: { wallet: true },
     });
-    if ('user' in result) {
+    if ("user" in result) {
       expect(result.user.walletAddress).toBe(mockWallet.baseAddress);
       expect(result.token).toEqual(expect.any(String));
     } else {
@@ -143,7 +144,7 @@ describe("auth service", () => {
     const secret = authenticator.generateSecret();
     const totpCode = authenticator.generateSync({ secret });
     const passwordHash = await bcrypt.hash("correct-password", 12);
-    
+
     prismaMock.user.findUnique.mockResolvedValue({
       ...mockUser,
       passwordHash,
@@ -158,7 +159,7 @@ describe("auth service", () => {
       totpCode,
     });
 
-    if ('user' in result) {
+    if ("user" in result) {
       expect(result.user.walletAddress).toBe(mockWallet.baseAddress);
     } else {
       throw new Error("Expected AuthResponse with user and token");
@@ -168,7 +169,7 @@ describe("auth service", () => {
   it("rejects invalid TOTP code", async () => {
     const secret = authenticator.generateSecret();
     const passwordHash = await bcrypt.hash("correct-password", 12);
-    
+
     prismaMock.user.findUnique.mockResolvedValue({
       ...mockUser,
       passwordHash,
@@ -191,9 +192,9 @@ describe("auth service", () => {
 
   it("sets up 2FA secret and returns QR code", async () => {
     prismaMock.user.findUnique.mockResolvedValue(mockUser);
-    
+
     const result = await setupTwoFactor(mockUser.id);
-    
+
     expect(result.secret).toBeDefined();
     expect(result.qrCodeUrl).toContain("data:image/png;base64");
     expect(prismaMock.user.update).toHaveBeenCalledWith({
@@ -205,14 +206,14 @@ describe("auth service", () => {
   it("verifies and enables 2FA", async () => {
     const secret = authenticator.generateSecret();
     const code = authenticator.generateSync({ secret });
-    
+
     prismaMock.user.findUnique.mockResolvedValue({
       ...mockUser,
       twoFactorSecret: secret,
     });
-    
+
     await verifyAndEnableTwoFactor(mockUser.id, code);
-    
+
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: mockUser.id },
       data: { isTwoFactorEnabled: true },
@@ -221,15 +222,13 @@ describe("auth service", () => {
 
   it("rejects invalid code during 2FA enablement", async () => {
     const secret = authenticator.generateSecret();
-    
+
     prismaMock.user.findUnique.mockResolvedValue({
       ...mockUser,
       twoFactorSecret: secret,
     });
-    
-    await expect(
-      verifyAndEnableTwoFactor(mockUser.id, "000000")
-    ).rejects.toMatchObject({
+
+    await expect(verifyAndEnableTwoFactor(mockUser.id, "000000")).rejects.toMatchObject({
       statusCode: 400,
       message: "Invalid 2FA code",
     });
