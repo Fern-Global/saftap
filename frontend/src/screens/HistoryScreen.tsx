@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Bell, ShieldCheck } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { ActivityItem } from "../components/ActivityItem";
-import { mockTransactions } from "../data/mockTransactions";
+import { usePayments } from "../hooks/usePayments";
 import { styles } from "../styles/commonStyles";
 import { theme } from "../styles/theme";
 import type { ScreenProps } from "../types/navigation";
@@ -12,8 +12,9 @@ import type { ScreenProps } from "../types/navigation";
 type HistoryFilter = "all" | "spent" | "received";
 
 export const HistoryScreen = ({ getFont }: ScreenProps) => {
+  const { fetchPaymentHistory, historyError, isHistoryLoading, transactions } = usePayments();
   const [historyTab, setHistoryTab] = useState<HistoryFilter>("all");
-  const filteredTransactions = mockTransactions.filter((transaction) => {
+  const filteredTransactions = transactions.filter((transaction) => {
     if (historyTab === "all") return true;
     if (historyTab === "spent") return transaction.type === "out";
     if (historyTab === "received") return transaction.type === "in";
@@ -76,9 +77,25 @@ export const HistoryScreen = ({ getFont }: ScreenProps) => {
         RECENT TRANSACTIONS
       </Text>
 
-      {filteredTransactions.map((transaction) => (
-        <ActivityItem key={transaction.id} {...transaction} />
-      ))}
+      {isHistoryLoading ? (
+        <ActivityIndicator color={theme.colors.primary} size="large" />
+      ) : historyError ? (
+        <View style={styles.infoBox}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.infoTitle}>Could not load transactions</Text>
+            <Text style={styles.infoSub}>{historyError}</Text>
+            <TouchableOpacity onPress={() => void fetchPaymentHistory()}>
+              <Text style={styles.viewAll}>TRY AGAIN</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : filteredTransactions.length > 0 ? (
+        filteredTransactions.map((transaction) => (
+          <ActivityItem key={transaction.id} {...transaction} />
+        ))
+      ) : (
+        <Text style={[styles.pageSub, { textAlign: "center" }]}>No transactions found.</Text>
+      )}
 
       <LinearGradient colors={[theme.colors.secondary, "#0055AA"]} style={styles.promoCard}>
         <View style={styles.promoContent}>

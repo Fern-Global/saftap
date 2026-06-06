@@ -16,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { ActivityItem } from "../components/ActivityItem";
 import { QuickService } from "../components/QuickService";
-import { mockTransactions } from "../data/mockTransactions";
+import { usePayments } from "../hooks/usePayments";
 import { useWallet } from "../hooks/useWallet";
 import { styles } from "../styles/commonStyles";
 import { theme } from "../styles/theme";
@@ -24,7 +24,8 @@ import type { ScreenProps } from "../types/navigation";
 import { formatKesFromUsdc } from "../utils/currency";
 
 export const HomeScreen = ({ getFont, navigateTo }: ScreenProps) => {
-  const { usdcBalance } = useWallet();
+  const { transactions } = usePayments();
+  const { marketRate, usdcBalance } = useWallet();
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
@@ -60,7 +61,7 @@ export const HomeScreen = ({ getFont, navigateTo }: ScreenProps) => {
 
         <View style={styles.balanceContent}>
           <Text style={[styles.balanceValue, { fontFamily: getFont("Syne_700Bold") }]}>
-            KES {formatKesFromUsdc(usdcBalance)}
+            KES {formatKesFromUsdc(usdcBalance, marketRate)}
           </Text>
           <View style={styles.usdcPill}>
             <Text style={[styles.usdcPillText, { fontFamily: getFont("JetBrainsMono_500Medium") }]}>
@@ -134,9 +135,12 @@ export const HomeScreen = ({ getFont, navigateTo }: ScreenProps) => {
         </TouchableOpacity>
       </View>
 
-      {mockTransactions.slice(0, 3).map((transaction) => (
+      {transactions.slice(0, 3).map((transaction) => (
         <ActivityItem key={transaction.id} {...transaction} />
       ))}
+      {transactions.length === 0 && (
+        <Text style={[styles.pageSub, { textAlign: "center" }]}>No payments yet.</Text>
+      )}
 
       <View style={styles.tipsCard}>
         <View style={styles.tipsIconBox}>
