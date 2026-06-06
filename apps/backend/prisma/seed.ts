@@ -1,9 +1,13 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
+const PASSWORD_HASH_ROUNDS = 12;
 
 async function main(): Promise<void> {
+  const passwordHash = await bcrypt.hash("password123", PASSWORD_HASH_ROUNDS);
+
   await prisma.transaction.deleteMany();
   await prisma.savedPayee.deleteMany();
   await prisma.wallet.deleteMany();
@@ -13,7 +17,7 @@ async function main(): Promise<void> {
     data: {
       email: "tourist@example.com",
       phone: "+254700000001",
-      passwordHash: "dummy_bcrypt_hash_for_local_seed_only",
+      passwordHash,
       role: "TOURIST",
       wallet: {
         create: {
