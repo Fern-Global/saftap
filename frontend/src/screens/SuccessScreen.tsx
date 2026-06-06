@@ -19,10 +19,10 @@ export const SuccessScreen = ({ getFont, navigateTo }: ScreenProps) => {
     <View style={[styles.flex, styles.centered, { padding: 40 }]}>
       <CheckCircle2 size={80} color={theme.colors.primary} style={{ marginBottom: 24 }} />
       <Text style={[styles.successTitle, { fontFamily: getFont("Syne_700Bold") }]}>
-        Payment Successful
+        Transaction Successful
       </Text>
       <Text style={[styles.successSub, { fontFamily: getFont("DMSans_400Regular") }]}>
-        Your SafTap payment has been processed and settled instantly.
+        Your SafTap transaction has been processed successfully.
       </Text>
       <TouchableOpacity
         style={[styles.primaryButton, { width: "100%", marginTop: 40 }]}

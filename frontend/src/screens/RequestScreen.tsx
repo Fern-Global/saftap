@@ -94,7 +94,7 @@ export const RequestScreen = ({ getFont, navigateTo }: ScreenProps) => {
               >
                 1 USDC = {marketRate.toFixed(2)} KES
               </Text>
-              <Text style={styles.conversionSub}>Rates are updated every 5s from Chainlink</Text>
+              <Text style={styles.conversionSub}>Rates are refreshed every 30 seconds</Text>
             </View>
 
             <TouchableOpacity

@@ -1,18 +1,45 @@
-import React from "react";
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Bell, Smartphone, Wallet, Zap } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { QuickAmount } from "../components/QuickAmount";
 import { useAuth } from "../hooks/useAuth";
-import { usePayments } from "../hooks/usePayments";
+import { useWallet } from "../hooks/useWallet";
 import { styles } from "../styles/commonStyles";
 import { theme } from "../styles/theme";
 import type { ScreenProps } from "../types/navigation";
 
 export const WalletScreen = ({ getFont, navigateTo }: ScreenProps) => {
   const { authUser } = useAuth();
-  const { amount, setAmount } = usePayments();
+  const { fundWallet } = useWallet();
+  const [amount, setAmount] = useState("");
+  const [isFunding, setIsFunding] = useState(false);
+
+  const handleFundWallet = async () => {
+    setIsFunding(true);
+
+    try {
+      await fundWallet(amount);
+      setAmount("");
+      navigateTo("success");
+    } catch (error) {
+      Alert.alert(
+        "Funding Failed",
+        error instanceof Error ? error.message : "Wallet funding could not be completed"
+      );
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
@@ -74,10 +101,18 @@ export const WalletScreen = ({ getFont, navigateTo }: ScreenProps) => {
           <QuickAmount value="100" current={amount} onPress={setAmount} />
         </View>
 
-        <TouchableOpacity style={styles.confirmDepositBtn} onPress={() => navigateTo("success")}>
-          <Text style={[styles.confirmDepositText, { fontFamily: getFont("DMSans_700Bold") }]}>
-            Confirm Deposit →
-          </Text>
+        <TouchableOpacity
+          style={[styles.confirmDepositBtn, (!amount || isFunding) && styles.buttonDisabled]}
+          disabled={!amount || isFunding}
+          onPress={handleFundWallet}
+        >
+          {isFunding ? (
+            <ActivityIndicator color={theme.colors.onPrimary} />
+          ) : (
+            <Text style={[styles.confirmDepositText, { fontFamily: getFont("DMSans_700Bold") }]}>
+              Confirm Deposit →
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 

@@ -6,7 +6,6 @@ import {
   FileText,
   Send as SendIcon,
   ShoppingBag,
-  User,
 } from "lucide-react-native";
 
 import { ServiceCard } from "../components/ServiceCard";
@@ -17,7 +16,7 @@ import type { ScreenProps } from "../types/navigation";
 import { formatWholeKesFromUsdc } from "../utils/currency";
 
 export const PaymentScreen = ({ getFont, navigateTo }: ScreenProps) => {
-  const { usdcBalance } = useWallet();
+  const { marketRate, usdcBalance } = useWallet();
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollPadding}>
@@ -46,7 +45,7 @@ export const PaymentScreen = ({ getFont, navigateTo }: ScreenProps) => {
         <View style={styles.kesBalanceRow}>
           <Text style={[styles.kesPrefix, { fontFamily: getFont("Syne_700Bold") }]}>KES </Text>
           <Text style={[styles.kesAmount, { fontFamily: getFont("Syne_700Bold") }]}>
-            {formatWholeKesFromUsdc(usdcBalance)}.00
+            {formatWholeKesFromUsdc(usdcBalance, marketRate)}.00
           </Text>
         </View>
         <View style={styles.percentBadge}>
@@ -93,20 +92,11 @@ export const PaymentScreen = ({ getFont, navigateTo }: ScreenProps) => {
         >
           Recent Payees
         </Text>
-        <TouchableOpacity>
-          <Text style={[styles.viewAll, { fontFamily: getFont("DMSans_700Bold") }]}>VIEW ALL</Text>
-        </TouchableOpacity>
       </View>
 
-      <View style={styles.payeeRow}>
-        {[1, 2, 3, 4].map((item) => (
-          <View key={item} style={styles.payeeAvatarContainer}>
-            <View style={styles.payeeAvatar}>
-              <User color={theme.colors.primary} size={28} />
-            </View>
-          </View>
-        ))}
-      </View>
+      <Text style={[styles.pageSub, { textAlign: "center" }]}>
+        Saved payees will appear here once payee management is available.
+      </Text>
     </ScrollView>
   );
 };
