@@ -14,7 +14,8 @@
     "test": "turbo run test",
     "backend:prisma:generate": "pnpm --filter @saftap/backend prisma:generate",
     "backend:prisma:migrate": "pnpm --filter @saftap/backend prisma:migrate",
-    "backend:prisma:seed": "pnpm --filter @saftap/backend prisma:seed"
+    "backend:prisma:seed": "pnpm --filter @saftap/backend prisma:seed",
+    "backend:tunnel": "pnpm --filter @saftap/backend tunnel"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.60.1",

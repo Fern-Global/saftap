@@ -5,8 +5,9 @@ This guide sets up the local development environment for Saftap, including backe
 ## 1. Prerequisites
 
 - Node.js 20 or later
-- pnpm (repo uses `pnpm@9.x`)
+- pnpm (repo uses `pnpm@11.x`)
 - PostgreSQL locally or via Docker
+- An ngrok account for receiving Daraja sandbox callbacks locally
 - Optional: Docker for quick local database setup
 
 ## 2. Fresh‑clone setup
@@ -83,7 +84,6 @@ Create frontend env files:
 
 ```bash
 cp frontend/.env.example frontend/.env
-cp apps/backend/.env.example apps/backend/.env
 ```
 
 Then update `frontend/.env` and `apps/backend/.env` with the correct values.
@@ -127,6 +127,50 @@ Run backend type checking:
 ```bash
 pnpm --filter @saftap/backend typecheck
 ```
+
+## 8. Receive Daraja callbacks with ngrok
+
+The Daraja sandbox sends payment results to a public HTTPS callback URL. The project uses
+the official ngrok Node SDK, so no global ngrok installation is required.
+
+Get your authtoken from the [ngrok dashboard](https://dashboard.ngrok.com/get-started/your-authtoken)
+and add it to `apps/backend/.env`:
+
+```env
+NGROK_AUTHTOKEN=your_ngrok_authtoken
+DARAJA_BASE_URL=https://sandbox.safaricom.co.ke
+```
+
+Start the tunnel from the repository root:
+
+```bash
+pnpm backend:tunnel
+```
+
+The command exposes backend port `4000`, prints the public HTTPS URL, and updates
+`WEBHOOK_BASE_URL` in `apps/backend/.env`. Keep the tunnel process running.
+
+In a second terminal, start or restart the backend so it loads the new callback URL:
+
+```bash
+pnpm --filter @saftap/backend dev
+```
+
+Daraja will receive these callback URLs in B2C and B2B requests:
+
+```text
+https://YOUR-NGROK-DOMAIN/webhooks/callback
+```
+
+Verify the public tunnel using the URL printed by the tunnel command:
+
+```bash
+curl https://YOUR-NGROK-DOMAIN/health
+```
+
+Free ngrok URLs may change whenever the tunnel restarts. Run `pnpm backend:tunnel` again,
+then restart the backend whenever that happens. Never commit `NGROK_AUTHTOKEN` or the local
+`apps/backend/.env` file.
 
 ## 9. Production / deployment notes
 
