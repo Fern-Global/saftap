@@ -1,6 +1,15 @@
 {
+  "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "RAILPACK",
+    "buildCommand": "pnpm --filter @saftap/shared build && pnpm --filter @saftap/backend build",
+    "watchPatterns": [
+      "/apps/backend/**",
+      "/packages/shared/**",
+      "/package.json",
+      "/pnpm-lock.yaml",
+      "/pnpm-workspace.yaml"
+    ]
   },
   "deploy": {
     "startCommand": "pnpm --filter @saftap/backend start",
