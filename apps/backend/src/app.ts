@@ -7,6 +7,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import { isMockCryptoWalletEnabled } from "./config/crypto-wallet.js";
 import authRouter from "./modules/auth/auth.routes.js";
 import { authenticateJWT } from "./modules/auth/auth.middleware.js";
 import { walletRouter } from "./modules/wallet/wallet.routes.js";
@@ -48,6 +49,7 @@ app.get("/health", (_request, response) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     version,
+    cryptoWalletMode: isMockCryptoWalletEnabled() ? "mock" : "real",
   });
 });
 

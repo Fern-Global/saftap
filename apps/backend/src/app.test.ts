@@ -33,6 +33,7 @@ describe("backend app", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(
       expect.objectContaining({
+        cryptoWalletMode: expect.stringMatching(/^(mock|real)$/),
         status: "ok",
         version: expect.any(String),
       })

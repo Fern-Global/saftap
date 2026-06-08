@@ -10,6 +10,11 @@ import {
   type Hex,
 } from "viem";
 import { baseSepolia } from "viem/chains";
+import {
+  createMockTransactionHash,
+  isMockCryptoWalletEnabled,
+  MOCK_TREASURY_ADDRESS,
+} from "../../config/crypto-wallet.js";
 import { prisma } from "../../lib/prisma.js";
 import { AppError, BadRequestError, InsufficientFundsError } from "../../shared/errors.js";
 import { darajaService } from "../mpesa/daraja.service.js";
@@ -36,7 +41,7 @@ const usdcTransferAbi = [
   },
 ] as const;
 
-const cdp = new CdpClient();
+let cdp: CdpClient | null = null;
 
 const publicClient = createPublicClient({
   chain: baseSepolia,
@@ -51,6 +56,11 @@ function getRequiredEnv(name: string): string {
   }
 
   return value;
+}
+
+function getCdpClient(): CdpClient {
+  cdp ??= new CdpClient();
+  return cdp;
 }
 
 function assertAddress(address: string, label: string): asserts address is Address {
@@ -162,20 +172,25 @@ async function executeUsdcTransferImpl(
 ): Promise<string> {
   assertAddress(fromAddress, "fromAddress");
   assertAddress(toAddress, "toAddress");
+  normalizeUsdcAmount(amountUSDC);
+
+  if (isMockCryptoWalletEnabled()) {
+    return createMockTransactionHash();
+  }
 
   const usdcContractAddress =
     process.env.USDC_CONTRACT_ADDRESS ?? DEFAULT_BASE_SEPOLIA_USDC_ADDRESS;
   assertAddress(usdcContractAddress, "USDC_CONTRACT_ADDRESS");
 
   try {
-    const account = await cdp.evm.getAccount({ address: fromAddress });
+    const account = await getCdpClient().evm.getAccount({ address: fromAddress });
     const data = encodeFunctionData({
       abi: usdcTransferAbi,
       functionName: "transfer",
       args: [toAddress, parseUnits(normalizeUsdcAmount(amountUSDC), USDC_DECIMALS)],
     });
 
-    const result = await cdp.evm.sendTransaction({
+    const result = await getCdpClient().evm.sendTransaction({
       address: account.address,
       network: "base-sepolia",
       transaction: {
@@ -233,7 +248,9 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
   });
 
   try {
-    const settlementAddress = getRequiredEnv("TREASURY_WALLET_ADDRESS");
+    const settlementAddress = isMockCryptoWalletEnabled()
+      ? MOCK_TREASURY_ADDRESS
+      : getRequiredEnv("TREASURY_WALLET_ADDRESS");
     const txHash = await paymentService.executeUsdcTransfer(
       wallet.baseAddress,
       settlementAddress,

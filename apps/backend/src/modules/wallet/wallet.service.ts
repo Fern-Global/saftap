@@ -10,6 +10,12 @@ import {
 } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
+import {
+  createMockTransactionHash,
+  createMockWalletAddress,
+  getMockWalletInitialBalance,
+  isMockCryptoWalletEnabled,
+} from "../../config/crypto-wallet.js";
 import { getOptionalEnv, getRequiredEnv } from "../../config/env.js";
 import { AppError, wrapExternalError } from "../../lib/app-error.js";
 import { prisma } from "../../lib/prisma.js";
@@ -88,7 +94,7 @@ export function getWalletClient() {
   });
 }
 
-const cdp = new CdpClient();
+let cdp: CdpClient | null = null;
 
 type CdpEvmAccount = {
   address: Address;
@@ -105,6 +111,11 @@ function assertAddress(address: string, label: string): asserts address is Addre
 
 function getCdpWalletId(account: CdpEvmAccount): string {
   return account.cdpWalletId ?? account.walletId ?? account.id ?? account.address;
+}
+
+function getCdpClient(): CdpClient {
+  cdp ??= new CdpClient();
+  return cdp;
 }
 
 function formatUsdcBalance(balance: bigint): string {
@@ -144,6 +155,22 @@ export async function createWallet(userId: string): Promise<CreateWalletResult> 
     throw new AppError("userId is required", 400, "INVALID_USER_ID");
   }
 
+  if (isMockCryptoWalletEnabled()) {
+    const address = createMockWalletAddress(userId);
+    const cdpWalletId = `mock-wallet-${userId}`;
+
+    await prisma.wallet.create({
+      data: {
+        userId,
+        baseAddress: address,
+        cdpWalletId,
+        usdcBalance: getMockWalletInitialBalance(),
+      },
+    });
+
+    return { address, cdpWalletId };
+  }
+
   const invalidEnvNames = getInvalidCdpWalletEnvNames();
 
   if (invalidEnvNames.length > 0) {
@@ -155,7 +182,7 @@ export async function createWallet(userId: string): Promise<CreateWalletResult> 
   }
 
   try {
-    const account = (await cdp.evm.createAccount()) as CdpEvmAccount;
+    const account = (await getCdpClient().evm.createAccount()) as CdpEvmAccount;
     assertAddress(account.address, "CDP account address");
 
     const cdpWalletId = getCdpWalletId(account);
@@ -207,6 +234,10 @@ export async function fundFromTreasury(
 
   if (!Number.isFinite(amountUSDC) || amountUSDC <= 0) {
     throw new AppError("amountUSDC must be greater than zero", 400, "INVALID_AMOUNT");
+  }
+
+  if (isMockCryptoWalletEnabled()) {
+    return createMockTransactionHash();
   }
 
   try {

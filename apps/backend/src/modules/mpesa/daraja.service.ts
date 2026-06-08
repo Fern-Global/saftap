@@ -26,6 +26,11 @@ const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
 let cachedToken: CachedToken | null = null;
 
+function getCallbackUrl(): string {
+  const baseUrl = process.env.WEBHOOK_BASE_URL ?? `http://localhost:${env.PORT}`;
+  return new URL("/webhooks/callback", baseUrl).toString();
+}
+
 /**
  * Get cached access token or request a new one from Daraja
  */
@@ -97,8 +102,8 @@ async function sendToMpesa(params: MpesaB2CParams): Promise<DarajaB2CResponse> {
       PartyA: env.DARAJA_SHORTCODE,
       PartyB: params.phoneNumber.replace(/^\+/, ""), // Remove + prefix if present
       Remarks: `Payment to ${params.recipientLabel}`,
-      QueueTimeOutURL: `${process.env.WEBHOOK_BASE_URL || "http://localhost:3000"}/mpesa/callback`,
-      ResultURL: `${process.env.WEBHOOK_BASE_URL || "http://localhost:3000"}/mpesa/callback`,
+      QueueTimeOutURL: getCallbackUrl(),
+      ResultURL: getCallbackUrl(),
     };
 
     const response = await fetch(B2C_URL, {
@@ -150,8 +155,8 @@ async function sendToTill(params: MpesaB2BParams): Promise<DarajaB2BResponse> {
       PartyB: params.tillNumber,
       Remarks: `Payment to Till ${params.tillNumber}`,
       AccountReference: params.accountRef,
-      QueueTimeOutURL: `${process.env.WEBHOOK_BASE_URL || "http://localhost:3000"}/mpesa/callback`,
-      ResultURL: `${process.env.WEBHOOK_BASE_URL || "http://localhost:3000"}/mpesa/callback`,
+      QueueTimeOutURL: getCallbackUrl(),
+      ResultURL: getCallbackUrl(),
     };
 
     const response = await fetch(B2B_URL, {

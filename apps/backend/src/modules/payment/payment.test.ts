@@ -1,5 +1,6 @@
 import { Prisma, TransactionStatus, type Transaction, type Wallet } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MOCK_TREASURY_ADDRESS } from "../../config/crypto-wallet.js";
 import type { InitiatePaymentParams } from "./payment.types.js";
 
 const prismaMock = vi.hoisted(() => ({
@@ -95,6 +96,7 @@ function arrangeSuccessfulPayment(): void {
 
 describe("payment service", () => {
   beforeEach(() => {
+    process.env.CRYPTO_WALLET_MODE = "real";
     process.env.TREASURY_WALLET_ADDRESS = "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8";
     vi.restoreAllMocks();
     vi.clearAllMocks();
@@ -241,5 +243,35 @@ describe("payment service", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     vi.unstubAllGlobals();
+  });
+
+  it("uses a mock settlement transfer without treasury configuration", async () => {
+    process.env.CRYPTO_WALLET_MODE = "mock";
+    delete process.env.TREASURY_WALLET_ADDRESS;
+
+    await paymentService.initiatePayment({
+      touristId,
+      destinationPhone: "+254700000001",
+      amountUsdc: 10,
+    });
+
+    expect(paymentService.executeUsdcTransfer).toHaveBeenCalledWith(
+      wallet.baseAddress,
+      MOCK_TREASURY_ADDRESS,
+      10
+    );
+  });
+
+  it("generates a mock on-chain transaction hash without contacting CDP", async () => {
+    vi.restoreAllMocks();
+    process.env.CRYPTO_WALLET_MODE = "mock";
+
+    const txHash = await paymentService.executeUsdcTransfer(
+      wallet.baseAddress,
+      MOCK_TREASURY_ADDRESS,
+      10
+    );
+
+    expect(txHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 });

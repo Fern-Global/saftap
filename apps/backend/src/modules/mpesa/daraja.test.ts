@@ -26,6 +26,7 @@ const envMock = vi.hoisted(() => ({
   DARAJA_CONSUMER_SECRET: "test-secret",
   DARAJA_SHORTCODE: "600000",
   DARAJA_PASSKEY: "test-passkey-123456",
+  PORT: 4000,
 }));
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -52,6 +53,7 @@ describe("Daraja Service", () => {
     vi.clearAllMocks();
     fetchMock.mockClear();
     vi.resetModules();
+    process.env.WEBHOOK_BASE_URL = "https://demo.example";
 
     const module = await import("./daraja.service.js");
     darajaService = module.darajaService;
@@ -200,6 +202,8 @@ describe("Daraja Service", () => {
       expect(body.Amount).toBe(100);
       expect(body.PartyB).toBe("254700000001"); // Phone without +
       expect(body.PartyA).toBe("600000");
+      expect(body.QueueTimeOutURL).toBe("https://demo.example/webhooks/callback");
+      expect(body.ResultURL).toBe("https://demo.example/webhooks/callback");
     });
 
     it("should remove + prefix from phone number", async () => {
