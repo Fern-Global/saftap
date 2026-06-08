@@ -104,8 +104,7 @@ Deploy the backend and frontend as separate Railway services connected to this r
 1. Create a new Railway service from this repository.
 2. Keep the service root directory set to `/` so pnpm can resolve the shared workspace package.
 3. In **Settings > Config-as-code**, set the Railway Config File path to
-   `/railway.frontend.json`. This is required; otherwise Railway uses `/railway.json` and deploys
-   the backend configuration.
+   `/frontend/railway.json`.
 4. Add `API_BASE_URL` as a service variable, including the backend `/api` path:
 
    ```text
@@ -118,9 +117,14 @@ The frontend config builds the Expo web export and serves `frontend/dist` on Rai
 `PORT`. In the deployment build plan, verify that the build command includes
 `expo export --platform web` and the start command is `pnpm --filter @saftap/mobile start`.
 
-The existing `/railway.json` and root `Procfile` continue to configure the backend service. Both
-Railway configurations use Railpack so the pinned pnpm version is installed without Nixpacks'
-legacy Corepack bootstrap.
+### Backend service
+
+Keep the backend service root directory set to `/` and set its Railway Config File path to
+`/apps/backend/railway.json`. The backend config builds only the shared package and backend,
+runs Prisma migrations before deployment, and checks `/health` before routing traffic.
+
+Both services use Railpack and scoped workspace commands so frontend and backend deployments remain
+independent.
 
 ---
 
