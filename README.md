@@ -95,6 +95,26 @@ SafTap acts as a **Liquidity Bridge**:
    pnpm dev
    ```
 
+## Railway Deployment
+
+Deploy the backend and frontend as separate Railway services connected to this repository.
+
+### Frontend service
+
+1. Create a new Railway service from this repository.
+2. Keep the service root directory set to `/` so pnpm can resolve the shared workspace package.
+3. In **Settings > Railway Config File**, set the path to `/railway.frontend.json`.
+4. Add `API_BASE_URL` as a service variable, including the backend `/api` path:
+
+   ```text
+   API_BASE_URL=https://your-backend-domain.up.railway.app/api
+   ```
+
+5. Generate a public domain for the frontend service and deploy it.
+
+The frontend config builds the Expo web export and serves `frontend/dist` on Railway's assigned
+`PORT`. The existing `/railway.json` and root `Procfile` continue to configure the backend service.
+
 ---
 
 ## Hackathon Context
