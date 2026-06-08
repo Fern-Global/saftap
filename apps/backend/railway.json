@@ -12,7 +12,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "pnpm --filter @saftap/backend start",
+    "startCommand": "pnpm --filter @saftap/backend exec prisma migrate deploy && pnpm --filter @saftap/backend start",
     "healthcheckPath": "/health"
   }
 }
