@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.5.2",
   "engines": {
-    "node": ">=20"
+    "node": ">=20 < 24"
   },
   "scripts": {
     "build": "turbo run build",
