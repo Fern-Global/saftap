@@ -6,6 +6,7 @@
   "scripts": {
     "build": "expo export",
     "dev": "pnpm --filter @saftap/shared build && expo start",
+    "start": "node server.mjs",
     "web": "pnpm --filter @saftap/shared build && expo start --web",
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",

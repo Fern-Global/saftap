@@ -4,7 +4,7 @@ import type { ConfigContext, ExpoConfig } from "@expo/config";
 const apiUrl =
   process.env.API_BASE_URL ??
   (process.env.NODE_ENV === "production"
-    ? "https://saftap-backend.up.railway.app"
+    ? "https://saftap-backend.up.railway.app/api"
     : "http://localhost:4000/api");
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
