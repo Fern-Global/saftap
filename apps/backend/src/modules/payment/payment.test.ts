@@ -224,4 +224,22 @@ describe("payment service", () => {
     expect(prismaMock.wallet.findUnique).not.toHaveBeenCalled();
     expect(paymentService.executeUsdcTransfer).not.toHaveBeenCalled();
   });
+
+  it("uses the last successful exchange rate during a transient provider failure", async () => {
+    vi.restoreAllMocks();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ rates: { KES: 129.5 } }),
+      })
+      .mockRejectedValueOnce(new Error("provider unavailable"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(paymentService.getExchangeRate()).resolves.toBe(129.5);
+    await expect(paymentService.getExchangeRate()).resolves.toBe(129.5);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
+  });
 });

@@ -13,7 +13,7 @@ import { walletRouter } from "./modules/wallet/wallet.routes.js";
 import { paymentRouter } from "./modules/payment/payment.routes.js";
 import { payeesRouter } from "./modules/payees/payees.routes.js";
 import { mpesaRouter } from "./modules/mpesa/mpesa.routes.js";
-import { AppError } from "./lib/app-error.js";
+import { AppError } from "./shared/errors.js";
 import packageJson from "../package.json" with { type: "json" };
 
 const app: Express = express();

@@ -17,7 +17,11 @@ import type { InitiatePaymentParams } from "./payment.types.js";
 
 const DEFAULT_EXCHANGE_RATE_URL = "https://open.er-api.com/v6/latest/USD";
 const DEFAULT_BASE_SEPOLIA_USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const EXCHANGE_RATE_MAX_STALE_MS = 15 * 60 * 1_000;
+const EXCHANGE_RATE_TIMEOUT_MS = 5_000;
 const USDC_DECIMALS = 6;
+
+let cachedExchangeRate: { rate: number; fetchedAt: number } | null = null;
 
 const usdcTransferAbi = [
   {
@@ -122,14 +126,27 @@ async function getExchangeRateImpl(): Promise<number> {
   const url = process.env.EXCHANGE_RATE_API_URL ?? DEFAULT_EXCHANGE_RATE_URL;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(EXCHANGE_RATE_TIMEOUT_MS),
+    });
 
     if (!response.ok) {
       throw new AppError(`Exchange rate API returned ${response.status}`, 502);
     }
 
-    return extractKesRate(await response.json());
+    const rate = extractKesRate(await response.json());
+    cachedExchangeRate = { rate, fetchedAt: Date.now() };
+
+    return rate;
   } catch (error) {
+    if (
+      cachedExchangeRate !== null &&
+      Date.now() - cachedExchangeRate.fetchedAt <= EXCHANGE_RATE_MAX_STALE_MS
+    ) {
+      console.warn("Exchange rate provider unavailable; using the last successful rate.");
+      return cachedExchangeRate.rate;
+    }
+
     if (error instanceof AppError) {
       throw error;
     }
@@ -188,7 +205,7 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
   });
 
   if (!wallet) {
-    throw new BadRequestError("Tourist wallet was not found");
+    throw new BadRequestError("Wallet was not found");
   }
 
   const requestedAmount = new Prisma.Decimal(params.amountUsdc);

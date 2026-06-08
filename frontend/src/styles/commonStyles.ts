@@ -1,8 +1,12 @@
-import { Dimensions, StyleSheet } from "react-native";
+import { Dimensions, Platform, StyleSheet, type ViewStyle } from "react-native";
 
 import { theme } from "./theme";
 
 const { width } = Dimensions.get("window");
+
+function platformShadow(boxShadow: string, nativeShadow: ViewStyle): ViewStyle {
+  return Platform.OS === "web" ? ({ boxShadow } as ViewStyle) : nativeShadow;
+}
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
@@ -55,10 +59,12 @@ export const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     marginBottom: 24,
-    shadowColor: theme.colors.secondary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
+    ...platformShadow(`0 10px 15px ${theme.colors.secondary}33`, {
+      shadowColor: theme.colors.secondary,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.2,
+      shadowRadius: 15,
+    }),
     elevation: 8,
   },
   balanceHeaderRow: {
@@ -233,10 +239,12 @@ export const styles = StyleSheet.create({
   },
   historyTabActive: {
     backgroundColor: theme.colors.background,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...platformShadow("0 2px 4px rgba(0, 0, 0, 0.1)", {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    }),
     elevation: 2,
   },
   historyTabText: { fontSize: 14, color: theme.colors.textSecondary },
@@ -512,10 +520,12 @@ export const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    ...platformShadow("0 5px 10px rgba(0, 0, 0, 0.1)", {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+    }),
     elevation: 5,
   },
   tabButton: { flex: 1, alignItems: "center", justifyContent: "center" },

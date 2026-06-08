@@ -17,6 +17,7 @@ function getUserId(request: Request): string {
 
 export async function getRate(_request: Request, response: Response): Promise<void> {
   const rate = await paymentService.getExchangeRate();
+  response.set("Cache-Control", "no-store");
   response.status(200).json({ rate });
 }
 

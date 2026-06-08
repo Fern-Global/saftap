@@ -132,9 +132,26 @@ function toUsdcAmount(amountUSDC: number): bigint {
   return amount;
 }
 
+function getInvalidCdpWalletEnvNames(): string[] {
+  return ["CDP_API_KEY_ID", "CDP_API_KEY_SECRET", "CDP_WALLET_SECRET"].filter((name) => {
+    const value = process.env[name]?.trim();
+    return !value || value.startsWith("your_");
+  });
+}
+
 export async function createWallet(userId: string): Promise<CreateWalletResult> {
   if (!userId.trim()) {
     throw new AppError("userId is required", 400, "INVALID_USER_ID");
+  }
+
+  const invalidEnvNames = getInvalidCdpWalletEnvNames();
+
+  if (invalidEnvNames.length > 0) {
+    throw new AppError(
+      `Configure real CDP wallet credentials: ${invalidEnvNames.join(", ")}`,
+      503,
+      "CDP_WALLET_NOT_CONFIGURED"
+    );
   }
 
   try {
@@ -156,7 +173,12 @@ export async function createWallet(userId: string): Promise<CreateWalletResult> 
       cdpWalletId,
     };
   } catch (error) {
-    throw wrapExternalError("Failed to create CDP wallet", "WALLET_CREATE_FAILED", error);
+    console.error("Failed to create CDP wallet:", error);
+    throw wrapExternalError(
+      "Failed to create CDP wallet; verify the CDP API key and wallet secret",
+      "WALLET_CREATE_FAILED",
+      error
+    );
   }
 }
 
