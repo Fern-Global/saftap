@@ -246,6 +246,7 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
       status: TransactionStatus.PENDING,
     },
   });
+  let walletDebited = false;
 
   try {
     const settlementAddress = isMockCryptoWalletEnabled()
@@ -274,6 +275,7 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
         },
       }),
     ]);
+    walletDebited = true;
 
     const darajaResponse =
       params.destinationTill || params.paybillNumber
@@ -298,7 +300,27 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
       },
     });
   } catch (error) {
-    await markTransactionFailed(transaction.id);
+    if (isMockCryptoWalletEnabled() && walletDebited) {
+      await prisma.$transaction([
+        prisma.wallet.update({
+          where: { id: wallet.id },
+          data: {
+            usdcBalance: {
+              increment: requestedAmount,
+            },
+          },
+        }),
+        prisma.transaction.update({
+          where: { id: transaction.id },
+          data: {
+            baseTxHash: null,
+            status: TransactionStatus.FAILED,
+          },
+        }),
+      ]);
+    } else {
+      await markTransactionFailed(transaction.id);
+    }
 
     if (error instanceof AppError) {
       throw error;

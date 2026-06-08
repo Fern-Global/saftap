@@ -14,6 +14,7 @@ import type {
   DarajaB2CRequestBody,
   DarajaB2CResponse,
   DarajaCallbackBody,
+  DarajaErrorResponse,
   DarajaTokenResponse,
   MpesaB2BParams,
   MpesaB2CParams,
@@ -30,6 +31,19 @@ function getDarajaUrl(path: string): string {
 function getCallbackUrl(): string {
   const baseUrl = env.WEBHOOK_BASE_URL ?? `http://localhost:${env.PORT}`;
   return new URL("/webhooks/callback", baseUrl).toString();
+}
+
+function getB2cRecipient(phoneNumber: string): string {
+  const requestedRecipient = phoneNumber.replace(/^\+/, "");
+  const isSandbox = new URL(env.DARAJA_BASE_URL).hostname === "sandbox.safaricom.co.ke";
+
+  return isSandbox && env.DARAJA_SANDBOX_B2C_MSISDN
+    ? env.DARAJA_SANDBOX_B2C_MSISDN
+    : requestedRecipient;
+}
+
+async function getDarajaError(response: Response): Promise<DarajaErrorResponse> {
+  return (await response.json().catch(() => ({}))) as DarajaErrorResponse;
 }
 
 /**
@@ -104,7 +118,7 @@ async function sendToMpesa(params: MpesaB2CParams): Promise<DarajaB2CResponse> {
       CommandID: "BusinessPayment",
       Amount: Math.round(params.amountKes),
       PartyA: env.DARAJA_SHORTCODE,
-      PartyB: params.phoneNumber.replace(/^\+/, ""), // Remove + prefix if present
+      PartyB: getB2cRecipient(params.phoneNumber),
       Remarks: `Payment to ${params.recipientLabel}`,
       QueueTimeOutURL: getCallbackUrl(),
       ResultURL: getCallbackUrl(),
@@ -120,7 +134,13 @@ async function sendToMpesa(params: MpesaB2CParams): Promise<DarajaB2CResponse> {
     });
 
     if (!response.ok) {
-      throw new Error(`B2C API returned ${response.status}`);
+      const providerError = await getDarajaError(response);
+      const detail = providerError.errorMessage ?? `HTTP ${response.status}`;
+      throw new AppError(
+        `M-Pesa sandbox rejected the payment: ${detail}`,
+        422,
+        providerError.errorCode ?? "DARAJA_B2C_REJECTED"
+      );
     }
 
     const data = (await response.json()) as DarajaB2CResponse;
@@ -173,7 +193,13 @@ async function sendToTill(params: MpesaB2BParams): Promise<DarajaB2BResponse> {
     });
 
     if (!response.ok) {
-      throw new Error(`B2B API returned ${response.status}`);
+      const providerError = await getDarajaError(response);
+      const detail = providerError.errorMessage ?? `HTTP ${response.status}`;
+      throw new AppError(
+        `M-Pesa sandbox rejected the till payment: ${detail}`,
+        422,
+        providerError.errorCode ?? "DARAJA_B2B_REJECTED"
+      );
     }
 
     const data = (await response.json()) as DarajaB2BResponse;

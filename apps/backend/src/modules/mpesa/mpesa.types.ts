@@ -75,6 +75,15 @@ export interface DarajaB2CResponse {
 }
 
 /**
+ * Error payload returned when Daraja rejects a request before processing.
+ */
+export interface DarajaErrorResponse {
+  errorCode?: string;
+  errorMessage?: string;
+  requestId?: string;
+}
+
+/**
  * Daraja B2B Request Body
  */
 /**

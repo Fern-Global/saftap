@@ -27,6 +27,7 @@ const envMock = vi.hoisted(() => ({
   DARAJA_CONSUMER_SECRET: "test-secret",
   DARAJA_SHORTCODE: "600000",
   DARAJA_PASSKEY: "test-passkey-123456",
+  DARAJA_SANDBOX_B2C_MSISDN: "254708374149",
   PORT: 4000,
   WEBHOOK_BASE_URL: "https://demo.example",
 }));
@@ -201,13 +202,13 @@ describe("Daraja Service", () => {
       const body = JSON.parse(call[1].body as string) as Record<string, unknown>;
       expect(body.CommandID).toBe("BusinessPayment");
       expect(body.Amount).toBe(100);
-      expect(body.PartyB).toBe("254700000001"); // Phone without +
+      expect(body.PartyB).toBe("254708374149");
       expect(body.PartyA).toBe("600000");
       expect(body.QueueTimeOutURL).toBe("https://demo.example/webhooks/callback");
       expect(body.ResultURL).toBe("https://demo.example/webhooks/callback");
     });
 
-    it("should remove + prefix from phone number", async () => {
+    it("should use the configured sandbox B2C recipient", async () => {
       const mockB2CResponse: DarajaB2CResponse = {
         OriginatorConversationID: "tx-456",
         ConversationID: "conv-456",
@@ -230,13 +231,17 @@ describe("Daraja Service", () => {
 
       const call = fetchMock.mock.calls[1];
       const body = JSON.parse(call[1].body as string) as Record<string, unknown>;
-      expect(body.PartyB).toBe("254700000002");
+      expect(body.PartyB).toBe("254708374149");
     });
 
     it("should handle B2C API errors", async () => {
       fetchMock.mockResolvedValueOnce({
         ok: false,
-        status: 500,
+        status: 400,
+        json: async () => ({
+          errorCode: "400.002.02",
+          errorMessage: "Bad Request - Invalid PartyB",
+        }),
       });
 
       const params: MpesaB2CParams = {
@@ -246,9 +251,11 @@ describe("Daraja Service", () => {
         recipientLabel: "Test User",
       };
 
-      await expect(darajaService.sendToMpesa(params)).rejects.toThrow(
-        "Failed to send payment to M-Pesa"
-      );
+      await expect(darajaService.sendToMpesa(params)).rejects.toMatchObject({
+        statusCode: 422,
+        code: "400.002.02",
+        message: "M-Pesa sandbox rejected the payment: Bad Request - Invalid PartyB",
+      });
     });
   });
 
@@ -328,6 +335,10 @@ describe("Daraja Service", () => {
       fetchMock.mockResolvedValueOnce({
         ok: false,
         status: 400,
+        json: async () => ({
+          errorCode: "400.002.02",
+          errorMessage: "Bad Request - Invalid PartyB",
+        }),
       });
 
       const params: MpesaB2BParams = {
@@ -336,9 +347,11 @@ describe("Daraja Service", () => {
         transactionId: "till-fail",
       };
 
-      await expect(darajaService.sendToTill(params)).rejects.toThrow(
-        "Failed to send payment to Till"
-      );
+      await expect(darajaService.sendToTill(params)).rejects.toMatchObject({
+        statusCode: 422,
+        code: "400.002.02",
+        message: "M-Pesa sandbox rejected the till payment: Bad Request - Invalid PartyB",
+      });
     });
   });
 

@@ -34,6 +34,10 @@ const envSchema = z
     DARAJA_CONSUMER_SECRET: z.string().min(1, "DARAJA_CONSUMER_SECRET is required"),
     DARAJA_SHORTCODE: z.string().min(1, "DARAJA_SHORTCODE is required"),
     DARAJA_PASSKEY: z.string().min(1, "DARAJA_PASSKEY is required"),
+    DARAJA_SANDBOX_B2C_MSISDN: z
+      .string()
+      .regex(/^\d{10,15}$/, "DARAJA_SANDBOX_B2C_MSISDN must contain 10 to 15 digits")
+      .optional(),
     WEBHOOK_BASE_URL: z
       .string()
       .url("WEBHOOK_BASE_URL must be a valid URL")

@@ -274,4 +274,33 @@ describe("payment service", () => {
 
     expect(txHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
+
+  it("refunds the mock wallet when Daraja rejects a payment", async () => {
+    process.env.CRYPTO_WALLET_MODE = "mock";
+    darajaServiceMock.sendToMpesa.mockRejectedValueOnce(new Error("Daraja rejected payment"));
+
+    await expect(
+      paymentService.initiatePayment({
+        touristId,
+        destinationPhone: "+254700000001",
+        amountUsdc: 10,
+      })
+    ).rejects.toThrow("Payment initiation failed");
+
+    expect(prismaMock.wallet.update).toHaveBeenLastCalledWith({
+      where: { id: wallet.id },
+      data: {
+        usdcBalance: {
+          increment: new Prisma.Decimal(10),
+        },
+      },
+    });
+    expect(prismaMock.transaction.update).toHaveBeenLastCalledWith({
+      where: { id: baseTransaction.id },
+      data: {
+        baseTxHash: null,
+        status: TransactionStatus.FAILED,
+      },
+    });
+  });
 });
