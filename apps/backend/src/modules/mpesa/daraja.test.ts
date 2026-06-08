@@ -22,11 +22,13 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 const envMock = vi.hoisted(() => ({
+  DARAJA_BASE_URL: "https://sandbox.safaricom.co.ke",
   DARAJA_CONSUMER_KEY: "test-key",
   DARAJA_CONSUMER_SECRET: "test-secret",
   DARAJA_SHORTCODE: "600000",
   DARAJA_PASSKEY: "test-passkey-123456",
   PORT: 4000,
+  WEBHOOK_BASE_URL: "https://demo.example",
 }));
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -53,7 +55,6 @@ describe("Daraja Service", () => {
     vi.clearAllMocks();
     fetchMock.mockClear();
     vi.resetModules();
-    process.env.WEBHOOK_BASE_URL = "https://demo.example";
 
     const module = await import("./daraja.service.js");
     darajaService = module.darajaService;
@@ -77,7 +78,7 @@ describe("Daraja Service", () => {
       expect(token).toBe("test-token-123");
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("oauth/v1/generate"),
+        "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
         expect.objectContaining({
           method: "GET",
           headers: expect.objectContaining({

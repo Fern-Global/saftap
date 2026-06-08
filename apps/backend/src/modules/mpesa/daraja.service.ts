@@ -19,15 +19,16 @@ import type {
   MpesaB2CParams,
 } from "./mpesa.types.js";
 
-const OAUTH_URL = "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
-const B2C_URL = "https://sandbox.safaricom.co.ke/mpesa/b2c/v3/paymentrequest";
-const B2B_URL = "https://sandbox.safaricom.co.ke/mpesa/b2b/v1/paymentrequest";
 const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
 let cachedToken: CachedToken | null = null;
 
+function getDarajaUrl(path: string): string {
+  return new URL(path, env.DARAJA_BASE_URL).toString();
+}
+
 function getCallbackUrl(): string {
-  const baseUrl = process.env.WEBHOOK_BASE_URL ?? `http://localhost:${env.PORT}`;
+  const baseUrl = env.WEBHOOK_BASE_URL ?? `http://localhost:${env.PORT}`;
   return new URL("/webhooks/callback", baseUrl).toString();
 }
 
@@ -47,12 +48,15 @@ async function getAccessToken(): Promise<string> {
       `${env.DARAJA_CONSUMER_KEY}:${env.DARAJA_CONSUMER_SECRET}`
     ).toString("base64");
 
-    const response = await fetch(OAUTH_URL, {
-      method: "GET",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-      },
-    });
+    const response = await fetch(
+      getDarajaUrl("/oauth/v1/generate?grant_type=client_credentials"),
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+        },
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`OAuth server returned ${response.status}`);
@@ -106,7 +110,7 @@ async function sendToMpesa(params: MpesaB2CParams): Promise<DarajaB2CResponse> {
       ResultURL: getCallbackUrl(),
     };
 
-    const response = await fetch(B2C_URL, {
+    const response = await fetch(getDarajaUrl("/mpesa/b2c/v3/paymentrequest"), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -159,7 +163,7 @@ async function sendToTill(params: MpesaB2BParams): Promise<DarajaB2BResponse> {
       ResultURL: getCallbackUrl(),
     };
 
-    const response = await fetch(B2B_URL, {
+    const response = await fetch(getDarajaUrl("/mpesa/b2b/v1/paymentrequest"), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,

@@ -26,10 +26,18 @@ const envSchema = z
     USDC_CONTRACT_ADDRESS: z.string().optional(),
     TREASURY_WALLET_ADDRESS: z.string().optional(),
     TREASURY_PRIVATE_KEY: z.string().optional(),
+    DARAJA_BASE_URL: z
+      .string()
+      .url("DARAJA_BASE_URL must be a valid URL")
+      .default("https://sandbox.safaricom.co.ke"),
     DARAJA_CONSUMER_KEY: z.string().min(1, "DARAJA_CONSUMER_KEY is required"),
     DARAJA_CONSUMER_SECRET: z.string().min(1, "DARAJA_CONSUMER_SECRET is required"),
     DARAJA_SHORTCODE: z.string().min(1, "DARAJA_SHORTCODE is required"),
     DARAJA_PASSKEY: z.string().min(1, "DARAJA_PASSKEY is required"),
+    WEBHOOK_BASE_URL: z
+      .string()
+      .url("WEBHOOK_BASE_URL must be a valid URL")
+      .optional(),
     JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
     DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
     PORT: z.coerce.number().int().positive("PORT must be a positive integer"),
