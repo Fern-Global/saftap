@@ -279,15 +279,22 @@ describe("Daraja Service", () => {
       const body = JSON.parse(fetchMock.mock.calls[1][1].body as string) as {
         SecurityCredential: string;
       };
-      const decrypted = privateDecrypt(
+      const encodedMessage = privateDecrypt(
         {
           key: privateKey,
-          padding: constants.RSA_PKCS1_PADDING,
+          padding: constants.RSA_NO_PADDING,
         },
         Buffer.from(body.SecurityCredential, "base64")
-      ).toString("utf8");
+      );
+      const messageSeparator = encodedMessage.indexOf(0, 2);
 
-      expect(decrypted).toBe(envMock.DARAJA_PASSKEY);
+      expect(encodedMessage[0]).toBe(0);
+      expect(encodedMessage[1]).toBe(2);
+      expect(messageSeparator).toBeGreaterThanOrEqual(10);
+
+      expect(encodedMessage.subarray(messageSeparator + 1).toString("utf8")).toBe(
+        envMock.DARAJA_PASSKEY
+      );
     });
 
     it("should handle B2C API errors", async () => {
