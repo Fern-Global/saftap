@@ -120,11 +120,12 @@ The frontend config builds the Expo web export and serves `frontend/dist` on Rai
 ### Backend service
 
 Keep the backend service root directory set to `/` and set its Railway Config File path to
-`/apps/backend/railway.json`. The backend config builds only the shared package and backend,
-runs Prisma migrations before deployment, and checks `/health` before routing traffic.
+`/apps/backend/railway.json`. Railway builds the backend Docker image, runs non-destructive Prisma
+migrations on startup, and checks `/health` before routing traffic. In the demo environment, the
+same image also runs a persistent Anvil fork alongside the API.
 
-Both services use Railpack and scoped workspace commands so frontend and backend deployments remain
-independent.
+The frontend uses Railpack while the backend uses its Dockerfile. See
+[`docs/environments.md`](docs/environments.md) for environment and wallet setup.
 
 ---
 

@@ -176,7 +176,8 @@ then restart the backend whenever that happens. Never commit `NGROK_AUTHTOKEN` o
 
 The backend includes `apps/backend/railway.json` and `apps/backend/Procfile` for deployment on Railway or other container-based hosts.
 
-Make sure the production environment defines all required backend variables, including `DATABASE_URL`, `JWT_SECRET`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`, `DARAJA_SHORTCODE`, `DARAJA_PASSKEY`, and `DARAJA_PUBLIC_CERTIFICATE`. Store Safaricom's live X.509 certificate as PEM text, escaping line breaks as `\n` when required by your deployment platform.
+See [`docs/environments.md`](docs/environments.md) for local Anvil, Railway demo,
+production CDP, persistence, and explicit reset configuration.
 
 If deploying manually, build and start the backend with:
 
