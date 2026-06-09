@@ -11,6 +11,7 @@ const prismaMock = vi.hoisted(() => ({
 
 const walletServiceMock = vi.hoisted(() => ({
   fundFromTreasury: vi.fn(),
+  getUsdcBalance: vi.fn(),
 }));
 
 vi.mock("../../lib/prisma.js", () => ({
@@ -47,9 +48,10 @@ describe("wallet controller", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.wallet.findUnique.mockResolvedValue(wallet);
+    walletServiceMock.getUsdcBalance.mockResolvedValue("125.5");
   });
 
-  it("returns the persisted balance used by payment validation", async () => {
+  it("returns the on-chain balance", async () => {
     const request = {
       user: { userId, walletAddress: wallet.baseAddress },
     } as Request;
@@ -58,34 +60,23 @@ describe("wallet controller", () => {
     await getWalletBalance(request, response);
 
     expect(response.json).toHaveBeenCalledWith({ balanceUsdc: "125.5" });
+    expect(walletServiceMock.getUsdcBalance).toHaveBeenCalledWith(wallet.baseAddress);
     expect(walletServiceMock.fundFromTreasury).not.toHaveBeenCalled();
   });
 
-  it("funds the wallet and increments the persisted balance", async () => {
+  it("funds the wallet and returns the refreshed chain balance", async () => {
     const request = {
       body: { amountUsdc: 20 },
       user: { userId, walletAddress: wallet.baseAddress },
     } as Request;
     const response = createResponse();
-    const fundedWallet = {
-      ...wallet,
-      usdcBalance: new Prisma.Decimal("145.5"),
-    };
-
     walletServiceMock.fundFromTreasury.mockResolvedValue("0xabc123");
-    prismaMock.wallet.update.mockResolvedValue(fundedWallet);
+    walletServiceMock.getUsdcBalance.mockResolvedValue("145.5");
 
     await fundWallet(request, response);
 
     expect(walletServiceMock.fundFromTreasury).toHaveBeenCalledWith(wallet.baseAddress, 20);
-    expect(prismaMock.wallet.update).toHaveBeenCalledWith({
-      where: { id: wallet.id },
-      data: {
-        usdcBalance: {
-          increment: 20,
-        },
-      },
-    });
+    expect(walletServiceMock.getUsdcBalance).toHaveBeenCalledWith(wallet.baseAddress);
     expect(response.status).toHaveBeenCalledWith(200);
     expect(response.json).toHaveBeenCalledWith({
       txHash: "0xabc123",

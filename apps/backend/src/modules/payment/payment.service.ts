@@ -1,67 +1,18 @@
-import { CdpClient } from "@coinbase/cdp-sdk";
 import { Prisma, TransactionStatus, type Transaction } from "@prisma/client";
-import {
-  createPublicClient,
-  encodeFunctionData,
-  http,
-  isAddress,
-  parseUnits,
-  type Address,
-  type Hex,
-} from "viem";
-import { baseSepolia } from "viem/chains";
-import {
-  createMockTransactionHash,
-  isMockCryptoWalletEnabled,
-  MOCK_TREASURY_ADDRESS,
-} from "../../config/crypto-wallet.js";
+import { isAddress, type Address } from "viem";
+import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import { AppError, BadRequestError, InsufficientFundsError } from "../../shared/errors.js";
 import { darajaService } from "../mpesa/daraja.service.js";
+import { getUsdcBalance, signUsdcTransfer } from "../wallet/wallet.service.js";
 import type { InitiatePaymentParams } from "./payment.types.js";
 
 const DEFAULT_EXCHANGE_RATE_URL = "https://open.er-api.com/v6/latest/USD";
-const DEFAULT_BASE_SEPOLIA_USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
 const EXCHANGE_RATE_MAX_STALE_MS = 15 * 60 * 1_000;
 const EXCHANGE_RATE_TIMEOUT_MS = 5_000;
 const USDC_DECIMALS = 6;
 
 let cachedExchangeRate: { rate: number; fetchedAt: number } | null = null;
-
-const usdcTransferAbi = [
-  {
-    name: "transfer",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "success", type: "bool" }],
-  },
-] as const;
-
-let cdp: CdpClient | null = null;
-
-const publicClient = createPublicClient({
-  chain: baseSepolia,
-  transport: http(process.env.BASE_SEPOLIA_RPC_URL ?? baseSepolia.rpcUrls.default.http[0]),
-});
-
-function getRequiredEnv(name: string): string {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new AppError(`${name} is required`, 500);
-  }
-
-  return value;
-}
-
-function getCdpClient(): CdpClient {
-  cdp ??= new CdpClient();
-  return cdp;
-}
 
 function assertAddress(address: string, label: string): asserts address is Address {
   if (!isAddress(address)) {
@@ -155,42 +106,20 @@ async function getExchangeRateImpl(): Promise<number> {
 }
 
 async function executeUsdcTransferImpl(
-  fromAddress: string,
+  wallet: {
+    baseAddress: string;
+    cdpWalletId: string | null;
+    encryptedKey: string | null;
+  },
   toAddress: string,
   amountUSDC: number
 ): Promise<string> {
-  assertAddress(fromAddress, "fromAddress");
+  assertAddress(wallet.baseAddress, "wallet.baseAddress");
   assertAddress(toAddress, "toAddress");
   normalizeUsdcAmount(amountUSDC);
 
-  if (isMockCryptoWalletEnabled()) {
-    return createMockTransactionHash();
-  }
-
-  const usdcContractAddress =
-    process.env.USDC_CONTRACT_ADDRESS ?? DEFAULT_BASE_SEPOLIA_USDC_ADDRESS;
-  assertAddress(usdcContractAddress, "USDC_CONTRACT_ADDRESS");
-
   try {
-    const account = await getCdpClient().evm.getAccount({ address: fromAddress });
-    const data = encodeFunctionData({
-      abi: usdcTransferAbi,
-      functionName: "transfer",
-      args: [toAddress, parseUnits(normalizeUsdcAmount(amountUSDC), USDC_DECIMALS)],
-    });
-
-    const result = await getCdpClient().evm.sendTransaction({
-      address: account.address,
-      network: "base-sepolia",
-      transaction: {
-        to: usdcContractAddress,
-        data,
-      },
-    });
-
-    await publicClient.waitForTransactionReceipt({ hash: result.transactionHash as Hex });
-
-    return result.transactionHash;
+    return await signUsdcTransfer(wallet, toAddress, amountUSDC);
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -212,9 +141,10 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
     throw new BadRequestError("Wallet was not found");
   }
 
+  const onChainBalance = new Prisma.Decimal(await getUsdcBalance(wallet.baseAddress));
   const requestedAmount = new Prisma.Decimal(params.amountUsdc);
 
-  if (wallet.usdcBalance.lt(requestedAmount)) {
+  if (onChainBalance.lt(requestedAmount)) {
     throw new InsufficientFundsError();
   }
 
@@ -235,17 +165,19 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
       status: TransactionStatus.PENDING,
     },
   });
-  let walletDebited = false;
-
   try {
-    const settlementAddress = isMockCryptoWalletEnabled()
-      ? MOCK_TREASURY_ADDRESS
-      : getRequiredEnv("TREASURY_WALLET_ADDRESS");
+    const settlementAddress = env.TREASURY_WALLET_ADDRESS;
+
+    if (!settlementAddress) {
+      throw new AppError("TREASURY_WALLET_ADDRESS is required", 500);
+    }
+
     const txHash = await paymentService.executeUsdcTransfer(
-      wallet.baseAddress,
+      wallet,
       settlementAddress,
       params.amountUsdc
     );
+    const remainingBalance = await getUsdcBalance(wallet.baseAddress);
 
     await prisma.$transaction([
       prisma.transaction.update({
@@ -258,13 +190,10 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
       prisma.wallet.update({
         where: { id: wallet.id },
         data: {
-          usdcBalance: {
-            decrement: requestedAmount,
-          },
+          usdcBalance: remainingBalance,
         },
       }),
     ]);
-    walletDebited = true;
 
     await (params.destinationTill || params.paybillNumber
       ? darajaService.sendToTill({
@@ -287,27 +216,7 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
       },
     });
   } catch (error) {
-    if (isMockCryptoWalletEnabled() && walletDebited) {
-      await prisma.$transaction([
-        prisma.wallet.update({
-          where: { id: wallet.id },
-          data: {
-            usdcBalance: {
-              increment: requestedAmount,
-            },
-          },
-        }),
-        prisma.transaction.update({
-          where: { id: transaction.id },
-          data: {
-            baseTxHash: null,
-            status: TransactionStatus.FAILED,
-          },
-        }),
-      ]);
-    } else {
-      await markTransactionFailed(transaction.id);
-    }
+    await markTransactionFailed(transaction.id);
 
     if (error instanceof AppError) {
       throw error;

@@ -1,63 +1,14 @@
 import { formatUnits, isAddress, parseUnits, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
-import { getOptionalEnv, getRequiredEnv } from "../config/env.js";
+import { getRequiredEnv } from "../config/env.js";
 import { AppError, wrapExternalError } from "../lib/app-error.js";
 import { publicClient, walletClient } from "./client.js";
+import { getRuntimeNetwork } from "./network.js";
+import { usdcAbi } from "./usdc-contract.js";
 
-/**
- * On-chain USDC contract address used for Sepolia network operations.
- */
-export const BASE_SEPOLIA_USDC_ADDRESS = getOptionalEnv(
-  "BASE_SEPOLIA_USDC_ADDRESS",
-  "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
-) as Address;
+export { usdcAbi } from "./usdc-contract.js";
 
-/**
- * Minimal ERC-20 ABI used for USDC balance and transfer contract calls.
- */
-export const usdcAbi = [
-  {
-    type: "function",
-    name: "balanceOf",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "balance", type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "transfer",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "success", type: "bool" }],
-  },
-  {
-    type: "function",
-    name: "decimals",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "decimals", type: "uint8" }],
-  },
-  {
-    type: "function",
-    name: "symbol",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "symbol", type: "string" }],
-  },
-  {
-    type: "event",
-    name: "Transfer",
-    inputs: [
-      { name: "from", type: "address", indexed: true },
-      { name: "to", type: "address", indexed: true },
-      { name: "value", type: "uint256", indexed: false },
-    ],
-  },
-] as const;
+export const USDC_ADDRESS = getRuntimeNetwork().usdcAddress;
 
 function assertAddress(address: string, label: string): asserts address is Address {
   if (!isAddress(address)) {
@@ -86,7 +37,7 @@ export async function getUsdcBalance(address: string): Promise<string> {
 
   try {
     const balance = await publicClient.readContract({
-      address: BASE_SEPOLIA_USDC_ADDRESS,
+      address: USDC_ADDRESS,
       abi: usdcAbi,
       functionName: "balanceOf",
       args: [address],
@@ -125,11 +76,11 @@ export async function transferUsdc(from: string, to: string, amount: bigint): Pr
 
     return await walletClient.writeContract({
       account,
-      address: BASE_SEPOLIA_USDC_ADDRESS,
+      address: USDC_ADDRESS,
       abi: usdcAbi,
       functionName: "transfer",
       args: [to, amount],
-      chain: baseSepolia,
+      chain: getRuntimeNetwork().chain,
     });
   } catch (error) {
     throw wrapExternalError("Failed to transfer USDC", "USDC_TRANSFER_FAILED", error);

@@ -1,6 +1,6 @@
 import type { Address, Hex } from "viem";
 import { publicClient } from "./client.js";
-import { BASE_SEPOLIA_USDC_ADDRESS, usdcAbi } from "./usdc.js";
+import { USDC_ADDRESS, usdcAbi } from "./usdc.js";
 
 /**
  * Incoming USDC transfer event payload captured from blockchain event watchers.
@@ -19,7 +19,7 @@ export function watchIncomingUsdc(
   onTransfer: (transfer: IncomingUsdcTransfer) => void
 ): () => void {
   return publicClient.watchContractEvent({
-    address: BASE_SEPOLIA_USDC_ADDRESS,
+    address: USDC_ADDRESS,
     abi: usdcAbi,
     eventName: "Transfer",
     args: {

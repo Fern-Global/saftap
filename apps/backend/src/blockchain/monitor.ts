@@ -5,7 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { darajaService } from "../modules/mpesa/daraja.service.js";
 import { publicClient } from "./client.js";
 import { watchIncomingUsdc, type IncomingUsdcTransfer } from "./events.js";
-import { BASE_SEPOLIA_USDC_ADDRESS, usdcAbi } from "./usdc.js";
+import { USDC_ADDRESS, usdcAbi } from "./usdc.js";
 
 const POLL_INTERVAL_MS = 5_000;
 const STUCK_ON_CHAIN_MS = 30_000;
@@ -101,7 +101,7 @@ async function replayConfirmedTransfer(
   const normalizedSettlementAddress = settlementAddress.toLowerCase();
 
   for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== BASE_SEPOLIA_USDC_ADDRESS.toLowerCase()) {
+    if (log.address.toLowerCase() !== USDC_ADDRESS.toLowerCase()) {
       continue;
     }
 

@@ -1,6 +1,5 @@
 import { Prisma, TransactionStatus, type Wallet } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MOCK_TREASURY_ADDRESS } from "../../config/crypto-wallet.js";
 import type { InitiatePaymentParams } from "./payment.types.js";
 
 const prismaMock = vi.hoisted(() => ({
@@ -21,22 +20,26 @@ const darajaServiceMock = vi.hoisted(() => ({
   sendToTill: vi.fn(),
 }));
 
+const walletServiceMock = vi.hoisted(() => ({
+  getUsdcBalance: vi.fn(),
+  signUsdcTransfer: vi.fn(),
+}));
+
 vi.mock("../../lib/prisma.js", () => ({
   prisma: prismaMock,
+}));
+
+vi.mock("../../config/env.js", () => ({
+  env: {
+    TREASURY_WALLET_ADDRESS: "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8",
+  },
 }));
 
 vi.mock("../mpesa/daraja.service.js", () => ({
   darajaService: darajaServiceMock,
 }));
 
-vi.mock("@coinbase/cdp-sdk", () => ({
-  CdpClient: vi.fn(() => ({
-    evm: {
-      getAccount: vi.fn(),
-      sendTransaction: vi.fn(),
-    },
-  })),
-}));
+vi.mock("../wallet/wallet.service.js", () => walletServiceMock);
 
 const { paymentService } = await import("./payment.service.js");
 
@@ -89,16 +92,17 @@ function arrangeSuccessfulPayment(): void {
   );
   darajaServiceMock.sendToMpesa.mockResolvedValue({ receiptId: "mpesa-receipt-001" });
   darajaServiceMock.sendToTill.mockResolvedValue({ receiptId: "till-receipt-001" });
-  vi.spyOn(paymentService, "getExchangeRate").mockResolvedValue(129);
-  vi.spyOn(paymentService, "executeUsdcTransfer").mockResolvedValue(
+  walletServiceMock.getUsdcBalance
+    .mockResolvedValueOnce("50")
+    .mockResolvedValue("40");
+  walletServiceMock.signUsdcTransfer.mockResolvedValue(
     "0xabc1230000000000000000000000000000000000000000000000000000000000"
   );
+  vi.spyOn(paymentService, "getExchangeRate").mockResolvedValue(129);
 }
 
 describe("payment service", () => {
   beforeEach(() => {
-    process.env.CRYPTO_WALLET_MODE = "real";
-    process.env.TREASURY_WALLET_ADDRESS = "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8";
     vi.restoreAllMocks();
     vi.clearAllMocks();
     arrangeSuccessfulPayment();
@@ -137,9 +141,9 @@ describe("payment service", () => {
         status: TransactionStatus.PENDING,
       }),
     });
-    expect(paymentService.executeUsdcTransfer).toHaveBeenCalledWith(
-      wallet.baseAddress,
-      process.env.TREASURY_WALLET_ADDRESS,
+    expect(walletServiceMock.signUsdcTransfer).toHaveBeenCalledWith(
+      wallet,
+      "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8",
       params.amountUsdc
     );
   });
@@ -210,7 +214,7 @@ describe("payment service", () => {
         "Provide exactly one destination: destinationPhone, destinationTill, or paybillNumber",
     });
     expect(prismaMock.wallet.findUnique).not.toHaveBeenCalled();
-    expect(paymentService.executeUsdcTransfer).not.toHaveBeenCalled();
+    expect(walletServiceMock.signUsdcTransfer).not.toHaveBeenCalled();
   });
 
   it("requires accountRef for paybill payments", async () => {
@@ -225,7 +229,7 @@ describe("payment service", () => {
       message: "accountRef is required when paybillNumber is provided",
     });
     expect(prismaMock.wallet.findUnique).not.toHaveBeenCalled();
-    expect(paymentService.executeUsdcTransfer).not.toHaveBeenCalled();
+    expect(walletServiceMock.signUsdcTransfer).not.toHaveBeenCalled();
   });
 
   it("uses the last successful exchange rate during a transient provider failure", async () => {
@@ -246,38 +250,22 @@ describe("payment service", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses a mock settlement transfer without treasury configuration", async () => {
-    process.env.CRYPTO_WALLET_MODE = "mock";
-    delete process.env.TREASURY_WALLET_ADDRESS;
-
-    await paymentService.initiatePayment({
-      touristId,
-      destinationPhone: "+254700000001",
-      amountUsdc: 10,
-    });
-
-    expect(paymentService.executeUsdcTransfer).toHaveBeenCalledWith(
-      wallet.baseAddress,
-      MOCK_TREASURY_ADDRESS,
-      10
-    );
-  });
-
-  it("generates a mock on-chain transaction hash without contacting CDP", async () => {
-    vi.restoreAllMocks();
-    process.env.CRYPTO_WALLET_MODE = "mock";
-
+  it("signs transfers through the configured wallet provider", async () => {
     const txHash = await paymentService.executeUsdcTransfer(
-      wallet.baseAddress,
-      MOCK_TREASURY_ADDRESS,
+      wallet,
+      "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8",
       10
     );
 
+    expect(walletServiceMock.signUsdcTransfer).toHaveBeenCalledWith(
+      wallet,
+      "0x4252e0c9A3da5A2700e7d91cb50aEf522D0C6Fe8",
+      10
+    );
     expect(txHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
-  it("refunds the mock wallet when Daraja rejects a payment", async () => {
-    process.env.CRYPTO_WALLET_MODE = "mock";
+  it("marks the transaction failed when Daraja rejects an on-chain payment", async () => {
     darajaServiceMock.sendToMpesa.mockRejectedValueOnce(new Error("Daraja rejected payment"));
 
     await expect(
@@ -288,20 +276,26 @@ describe("payment service", () => {
       })
     ).rejects.toThrow("Payment initiation failed");
 
-    expect(prismaMock.wallet.update).toHaveBeenLastCalledWith({
-      where: { id: wallet.id },
-      data: {
-        usdcBalance: {
-          increment: new Prisma.Decimal(10),
-        },
-      },
-    });
     expect(prismaMock.transaction.update).toHaveBeenLastCalledWith({
       where: { id: baseTransaction.id },
       data: {
-        baseTxHash: null,
         status: TransactionStatus.FAILED,
       },
     });
+  });
+
+  it("rejects a payment when the on-chain USDC balance is insufficient", async () => {
+    walletServiceMock.getUsdcBalance.mockReset();
+    walletServiceMock.getUsdcBalance.mockResolvedValue("5");
+
+    await expect(
+      paymentService.initiatePayment({
+        touristId,
+        destinationPhone: "+254700000001",
+        amountUsdc: 10,
+      })
+    ).rejects.toThrow("Insufficient USDC balance");
+
+    expect(walletServiceMock.signUsdcTransfer).not.toHaveBeenCalled();
   });
 });

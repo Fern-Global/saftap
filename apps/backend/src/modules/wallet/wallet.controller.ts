@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../../lib/prisma.js";
 import { AppError } from "../../shared/errors.js";
-import { fundFromTreasury } from "./wallet.service.js";
+import { fundFromTreasury, getUsdcBalance } from "./wallet.service.js";
 
 function getUserId(request: Request): string {
   const userId = request.user?.userId;
@@ -21,7 +21,8 @@ export async function getWalletBalance(request: Request, response: Response): Pr
     throw new AppError("Wallet not found", 404);
   }
 
-  response.status(200).json({ balanceUsdc: wallet.usdcBalance.toString() });
+  const balanceUsdc = await getUsdcBalance(wallet.baseAddress);
+  response.status(200).json({ balanceUsdc });
 }
 
 export async function fundWallet(request: Request, response: Response): Promise<void> {
@@ -39,17 +40,10 @@ export async function fundWallet(request: Request, response: Response): Promise<
   }
 
   const txHash = await fundFromTreasury(wallet.baseAddress, amountUsdc);
-  const updatedWallet = await prisma.wallet.update({
-    where: { id: wallet.id },
-    data: {
-      usdcBalance: {
-        increment: amountUsdc,
-      },
-    },
-  });
+  const balanceUsdc = await getUsdcBalance(wallet.baseAddress);
 
   response.status(200).json({
     txHash,
-    balanceUsdc: updatedWallet.usdcBalance.toString(),
+    balanceUsdc,
   });
 }
