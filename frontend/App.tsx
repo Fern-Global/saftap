@@ -31,7 +31,7 @@ import { shouldShowBottomNav } from "./src/types/navigation";
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState<Tab>("login");
   const { getFont, isReady } = useAppFonts();
-  const { hideSuccessModal, showSuccessModal } = usePayments();
+  const { completedTransaction, hideSuccessModal, showSuccessModal } = usePayments();
 
   if (!isReady) {
     return (
@@ -86,7 +86,12 @@ const AppContent = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <View style={{ flex: 1 }}>{renderScreen()}</View>
-      <SuccessModal getFont={getFont} visible={showSuccessModal} onClose={hideSuccessModal} />
+      <SuccessModal
+        getFont={getFont}
+        visible={showSuccessModal}
+        onClose={hideSuccessModal}
+        transaction={completedTransaction}
+      />
       {shouldShowBottomNav(activeTab) && (
         <BottomNav activeTab={activeTab} navigateTo={navigateTo} />
       )}

@@ -22,7 +22,17 @@ describe("transaction mapping", () => {
       type: "out",
       category: "Transfer",
     });
-    expect(transaction.sub).toContain("COMPLETED");
+    expect(transaction.sub).toContain("Completed");
+  });
+
+  it("renders accepted Daraja payments as processing", () => {
+    const transaction = mapApiTransaction({
+      ...baseTransaction,
+      destinationPhone: "+254700000001",
+      status: "CONVERTING",
+    });
+
+    expect(transaction.sub).toContain("Processing");
   });
 
   it("maps till payments", () => {

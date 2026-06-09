@@ -130,6 +130,12 @@ export interface DarajaCallbackResult {
   ConversationID: string;
   TransactionID: string;
   ReceiptNumber?: string;
+  ResultParameters?: {
+    ResultParameter?: Array<{
+      Key: string;
+      Value?: string | number | boolean;
+    }>;
+  };
 }
 
 /**

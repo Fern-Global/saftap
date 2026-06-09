@@ -34,6 +34,8 @@ const envSchema = z
     DARAJA_CONSUMER_SECRET: z.string().min(1, "DARAJA_CONSUMER_SECRET is required"),
     DARAJA_SHORTCODE: z.string().min(1, "DARAJA_SHORTCODE is required"),
     DARAJA_PASSKEY: z.string().min(1, "DARAJA_PASSKEY is required"),
+    DARAJA_PUBLIC_CERTIFICATE: z.string().optional(),
+    DARAJA_SANDBOX_SECURITY_CREDENTIAL: z.string().optional(),
     DARAJA_SANDBOX_B2C_MSISDN: z
       .string()
       .regex(/^\d{10,15}$/, "DARAJA_SANDBOX_B2C_MSISDN must contain 10 to 15 digits")
@@ -47,6 +49,16 @@ const envSchema = z
     PORT: z.coerce.number().int().positive("PORT must be a positive integer"),
   })
   .superRefine((values, context) => {
+    const isDarajaSandbox = new URL(values.DARAJA_BASE_URL).hostname.includes("sandbox");
+
+    if (!isDarajaSandbox && !values.DARAJA_PUBLIC_CERTIFICATE?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "DARAJA_PUBLIC_CERTIFICATE is required for live Daraja APIs",
+        path: ["DARAJA_PUBLIC_CERTIFICATE"],
+      });
+    }
+
     if (values.CRYPTO_WALLET_MODE === "mock") {
       return;
     }

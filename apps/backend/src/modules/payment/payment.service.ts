@@ -114,17 +114,6 @@ function validateDestination(params: InitiatePaymentParams): void {
   }
 }
 
-function getDarajaReceiptId(response: unknown): string | undefined {
-  if (typeof response !== "object" || response === null) {
-    return undefined;
-  }
-
-  const result = response as Record<string, unknown>;
-  const receipt = result.receiptId ?? result.ReceiptNumber ?? result.CheckoutRequestID;
-
-  return typeof receipt === "string" ? receipt : undefined;
-}
-
 async function markTransactionFailed(transactionId: string): Promise<void> {
   await prisma.transaction.update({
     where: { id: transactionId },
@@ -277,26 +266,24 @@ async function initiatePaymentImpl(params: InitiatePaymentParams): Promise<Trans
     ]);
     walletDebited = true;
 
-    const darajaResponse =
-      params.destinationTill || params.paybillNumber
-        ? await darajaService.sendToTill({
-            amountKes: amountKes.toNumber(),
-            tillNumber: params.destinationTill ?? params.paybillNumber ?? "",
-            accountRef: params.accountRef,
-            transactionId: transaction.id,
-          })
-        : await darajaService.sendToMpesa({
-            amountKes: amountKes.toNumber(),
-            phoneNumber: params.destinationPhone ?? "",
-            recipientLabel: params.destinationPhone ?? "Tourist payout",
-            transactionId: transaction.id,
-          });
+    await (params.destinationTill || params.paybillNumber
+      ? darajaService.sendToTill({
+          amountKes: amountKes.toNumber(),
+          tillNumber: params.destinationTill ?? params.paybillNumber ?? "",
+          accountRef: params.accountRef,
+          transactionId: transaction.id,
+        })
+      : darajaService.sendToMpesa({
+          amountKes: amountKes.toNumber(),
+          phoneNumber: params.destinationPhone ?? "",
+          recipientLabel: params.destinationPhone ?? "Tourist payout",
+          transactionId: transaction.id,
+        }));
 
     return await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
-        darajaReceiptId: getDarajaReceiptId(darajaResponse),
-        status: TransactionStatus.COMPLETED,
+        status: TransactionStatus.CONVERTING,
       },
     });
   } catch (error) {

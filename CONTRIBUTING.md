@@ -159,7 +159,7 @@ pnpm --filter @saftap/backend dev
 Daraja will receive these callback URLs in B2C and B2B requests:
 
 ```text
-https://YOUR-NGROK-DOMAIN/webhooks/callback
+https://YOUR-NGROK-DOMAIN/api/mpesa/callback
 ```
 
 Verify the public tunnel using the URL printed by the tunnel command:
@@ -176,7 +176,7 @@ then restart the backend whenever that happens. Never commit `NGROK_AUTHTOKEN` o
 
 The backend includes `apps/backend/railway.json` and `apps/backend/Procfile` for deployment on Railway or other container-based hosts.
 
-Make sure the production environment defines all required backend variables, including `DATABASE_URL`, `JWT_SECRET`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`, `DARAJA_SHORTCODE`, and `DARAJA_PASSKEY`.
+Make sure the production environment defines all required backend variables, including `DATABASE_URL`, `JWT_SECRET`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`, `DARAJA_SHORTCODE`, `DARAJA_PASSKEY`, and `DARAJA_PUBLIC_CERTIFICATE`. Store Safaricom's live X.509 certificate as PEM text, escaping line breaks as `\n` when required by your deployment platform.
 
 If deploying manually, build and start the backend with:
 

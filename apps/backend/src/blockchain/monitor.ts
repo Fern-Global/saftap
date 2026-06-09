@@ -75,8 +75,7 @@ async function handleIncomingTransfer({
     await prisma.transaction.update({
       where: { id: tx.id },
       data: {
-        status: "COMPLETED",
-        darajaReceiptId: payoutResult.ConversationID ?? payoutResult.OriginatorConversationID,
+        status: "CONVERTING",
       },
     });
   } catch (error) {

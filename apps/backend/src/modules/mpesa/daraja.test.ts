@@ -4,6 +4,7 @@
  */
 
 import { TransactionStatus } from "@prisma/client";
+import { constants, generateKeyPairSync, privateDecrypt } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   DarajaB2BResponse,
@@ -27,6 +28,8 @@ const envMock = vi.hoisted(() => ({
   DARAJA_CONSUMER_SECRET: "test-secret",
   DARAJA_SHORTCODE: "600000",
   DARAJA_PASSKEY: "test-passkey-123456",
+  DARAJA_PUBLIC_CERTIFICATE: undefined as string | undefined,
+  DARAJA_SANDBOX_SECURITY_CREDENTIAL: undefined as string | undefined,
   DARAJA_SANDBOX_B2C_MSISDN: "254708374149",
   PORT: 4000,
   WEBHOOK_BASE_URL: "https://demo.example",
@@ -56,6 +59,9 @@ describe("Daraja Service", () => {
     vi.clearAllMocks();
     fetchMock.mockClear();
     vi.resetModules();
+    envMock.DARAJA_BASE_URL = "https://sandbox.safaricom.co.ke";
+    envMock.DARAJA_PUBLIC_CERTIFICATE = undefined;
+    envMock.DARAJA_SANDBOX_SECURITY_CREDENTIAL = undefined;
 
     const module = await import("./daraja.service.js");
     darajaService = module.darajaService;
@@ -204,8 +210,8 @@ describe("Daraja Service", () => {
       expect(body.Amount).toBe(100);
       expect(body.PartyB).toBe("254708374149");
       expect(body.PartyA).toBe("600000");
-      expect(body.QueueTimeOutURL).toBe("https://demo.example/webhooks/callback");
-      expect(body.ResultURL).toBe("https://demo.example/webhooks/callback");
+      expect(body.QueueTimeOutURL).toBe("https://demo.example/api/mpesa/callback");
+      expect(body.ResultURL).toBe("https://demo.example/api/mpesa/callback");
     });
 
     it("should use the configured sandbox B2C recipient", async () => {
@@ -234,6 +240,56 @@ describe("Daraja Service", () => {
       expect(body.PartyB).toBe("254708374149");
     });
 
+    it("should RSA-encrypt the initiator password for live APIs", async () => {
+      const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+      });
+      envMock.DARAJA_BASE_URL = "https://api.safaricom.co.ke";
+      envMock.DARAJA_PUBLIC_CERTIFICATE = publicKey.export({
+        format: "pem",
+        type: "spki",
+      }) as string;
+
+      fetchMock.mockReset();
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            access_token: "live-token",
+            token_type: "Bearer",
+            expires_in: 3600,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            OriginatorConversationID: "live-123",
+            ConversationID: "live-conversation",
+            ResponseDescription: "accepted",
+          }),
+        });
+
+      await darajaService.sendToMpesa({
+        phoneNumber: "+254700000002",
+        amountKes: 200,
+        transactionId: "live-123",
+        recipientLabel: "Live recipient",
+      });
+
+      const body = JSON.parse(fetchMock.mock.calls[1][1].body as string) as {
+        SecurityCredential: string;
+      };
+      const decrypted = privateDecrypt(
+        {
+          key: privateKey,
+          padding: constants.RSA_PKCS1_PADDING,
+        },
+        Buffer.from(body.SecurityCredential, "base64")
+      ).toString("utf8");
+
+      expect(decrypted).toBe(envMock.DARAJA_PASSKEY);
+    });
+
     it("should handle B2C API errors", async () => {
       fetchMock.mockResolvedValueOnce({
         ok: false,
@@ -254,7 +310,7 @@ describe("Daraja Service", () => {
       await expect(darajaService.sendToMpesa(params)).rejects.toMatchObject({
         statusCode: 422,
         code: "400.002.02",
-        message: "M-Pesa sandbox rejected the payment: Bad Request - Invalid PartyB",
+        message: "M-Pesa rejected the payment: Bad Request - Invalid PartyB",
       });
     });
   });
@@ -350,7 +406,7 @@ describe("Daraja Service", () => {
       await expect(darajaService.sendToTill(params)).rejects.toMatchObject({
         statusCode: 422,
         code: "400.002.02",
-        message: "M-Pesa sandbox rejected the till payment: Bad Request - Invalid PartyB",
+        message: "M-Pesa rejected the till payment: Bad Request - Invalid PartyB",
       });
     });
   });
@@ -368,8 +424,14 @@ describe("Daraja Service", () => {
           ResultDesc: "Success",
           OriginatorConversationID: "tx-123",
           ConversationID: "conv-123",
-          TransactionID: "trans-123",
-          ReceiptNumber: "RECEIPT-123",
+          TransactionID: "fallback-transaction-id",
+          ResultParameters: {
+            ResultParameter: [
+              { Key: "TransactionReceipt", Value: "RECEIPT-123" },
+              { Key: "TransactionAmount", Value: 125.5 },
+              { Key: "ReceiverPartyPublicName", Value: "254700000001 - John Doe" },
+            ],
+          },
         },
       };
 
@@ -380,6 +442,8 @@ describe("Daraja Service", () => {
         data: {
           status: TransactionStatus.COMPLETED,
           darajaReceiptId: "RECEIPT-123",
+          amountKes: 125.5,
+          darajaReceiverName: "254700000001 - John Doe",
         },
       });
     });
@@ -406,7 +470,8 @@ describe("Daraja Service", () => {
         where: { id: "tx-456" },
         data: {
           status: TransactionStatus.FAILED,
-          darajaReceiptId: undefined,
+          darajaReceiptId: null,
+          darajaReceiverName: null,
         },
       });
     });
@@ -428,13 +493,15 @@ describe("Daraja Service", () => {
       await expect(darajaService.handleCallback(callback)).resolves.toBeUndefined();
     });
 
-    it("should not fail if missing Result field", async () => {
+    it("should reject a callback with a missing Result field", async () => {
       const callback = {
         Result: null,
       } as unknown as DarajaCallbackBody;
 
-      // Should not throw
-      await expect(darajaService.handleCallback(callback)).resolves.toBeUndefined();
+      await expect(darajaService.handleCallback(callback)).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Invalid callback body: missing Result field",
+      });
     });
   });
 

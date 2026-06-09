@@ -7,6 +7,11 @@ import { useWallet } from "../hooks/useWallet";
 import type { Transaction } from "../types/models";
 import { mapApiTransaction } from "../utils/transactions";
 
+const PAYMENT_POLL_INTERVAL_MS = 2_000;
+const PAYMENT_POLL_ATTEMPTS = 30;
+
+class DarajaPaymentFailedError extends Error {}
+
 type PaymentContextValue = {
   accountNumber: string;
   amount: string;
@@ -19,6 +24,7 @@ type PaymentContextValue = {
   showSuccessModal: boolean;
   tillNumber: string;
   transactions: Transaction[];
+  completedTransaction: Transaction | null;
   confirmRequest: (onComplete: () => void) => void;
   fetchPaymentHistory: () => Promise<void>;
   hideSuccessModal: () => void;
@@ -50,6 +56,7 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const [showRateConfirm, setShowRateConfirm] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const processingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,7 +86,55 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
 
   const hideSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
+    setCompletedTransaction(null);
   }, []);
+
+  const upsertTransaction = useCallback((transaction: Transaction) => {
+    setTransactions((current) => [
+      transaction,
+      ...current.filter((item) => item.id !== transaction.id),
+    ]);
+  }, []);
+
+  const pollTransaction = useCallback(
+    async (transactionId: string): Promise<Transaction | null> => {
+      for (let attempt = 0; attempt < PAYMENT_POLL_ATTEMPTS; attempt += 1) {
+        const response = await fetch(`${API_BASE_URL}/mpesa/status/${transactionId}`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          const message =
+            data && typeof data === "object"
+              ? String(
+                  (data as { error?: unknown; message?: unknown }).error ??
+                    (data as { message?: unknown }).message ??
+                    "Could not check payment status"
+                )
+              : "Could not check payment status";
+
+          throw new Error(message);
+        }
+
+        const transaction = mapApiTransaction(data);
+        upsertTransaction(transaction);
+
+        if (transaction.status === "COMPLETED") {
+          return transaction;
+        }
+
+        if (transaction.status === "FAILED") {
+          throw new DarajaPaymentFailedError("M-Pesa could not complete the payment.");
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, PAYMENT_POLL_INTERVAL_MS));
+      }
+
+      return null;
+    },
+    [authToken, upsertTransaction]
+  );
 
   const fetchPaymentHistory = useCallback(async () => {
     if (!authToken) {
@@ -162,6 +217,7 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
       }
 
       setIsProcessing(true);
+      let paymentAccepted = false;
 
       try {
         const response = await fetch(`${API_BASE_URL}/payment/initiate`, {
@@ -190,10 +246,33 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
           throw new Error(message);
         }
 
+        if (
+          !data ||
+          typeof data !== "object" ||
+          typeof (data as { id?: unknown }).id !== "string"
+        ) {
+          throw new Error("Payment response was invalid");
+        }
+
+        const pendingTransaction = mapApiTransaction(data);
+        paymentAccepted = true;
+        upsertTransaction(pendingTransaction);
         deductKesAmount(amount);
         void refreshWalletData();
-        void fetchPaymentHistory();
+        const settledTransaction = await pollTransaction(pendingTransaction.id);
+
+        if (!settledTransaction) {
+          Alert.alert(
+            "Payment Processing",
+            "M-Pesa is still processing this payment. Its receipt will appear in your history."
+          );
+          void fetchPaymentHistory();
+          return;
+        }
+
+        setCompletedTransaction(settledTransaction);
         setShowSuccessModal(true);
+        void fetchPaymentHistory();
 
         if (autoCloseTimerRef.current) {
           clearTimeout(autoCloseTimerRef.current);
@@ -201,14 +280,23 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
 
         autoCloseTimerRef.current = setTimeout(() => {
           setShowSuccessModal(false);
+          setCompletedTransaction(null);
           resetPaymentForm();
           onComplete();
         }, 2500);
       } catch (error) {
-        Alert.alert(
-          "Payment Failed",
-          error instanceof Error ? error.message : "Payment could not be completed"
-        );
+        if (paymentAccepted && !(error instanceof DarajaPaymentFailedError)) {
+          Alert.alert(
+            "Payment Processing",
+            "The payment was accepted, but its latest M-Pesa status could not be loaded. Check your history shortly."
+          );
+          void fetchPaymentHistory();
+        } else {
+          Alert.alert(
+            "Payment Failed",
+            error instanceof Error ? error.message : "Payment could not be completed"
+          );
+        }
       } finally {
         setIsProcessing(false);
       }
@@ -222,9 +310,11 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
       fetchPaymentHistory,
       marketRate,
       phoneNumber,
+      pollTransaction,
       refreshWalletData,
       resetPaymentForm,
       tillNumber,
+      upsertTransaction,
     ]
   );
 
@@ -242,6 +332,7 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
       accountNumber,
       amount,
       bizNumber,
+      completedTransaction,
       confirmRequest,
       fetchPaymentHistory,
       hideSuccessModal,
@@ -266,6 +357,7 @@ export const PaymentProvider = ({ children }: PaymentProviderProps) => {
       accountNumber,
       amount,
       bizNumber,
+      completedTransaction,
       confirmRequest,
       fetchPaymentHistory,
       hideSuccessModal,

@@ -1,4 +1,4 @@
-import { Prisma, TransactionStatus, type Transaction, type Wallet } from "@prisma/client";
+import { Prisma, TransactionStatus, type Wallet } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MOCK_TREASURY_ADDRESS } from "../../config/crypto-wallet.js";
 import type { InitiatePaymentParams } from "./payment.types.js";
@@ -54,7 +54,7 @@ const wallet: Wallet = {
   updatedAt: new Date("2026-01-01T10:00:00.000Z"),
 };
 
-const baseTransaction: Transaction = {
+const baseTransaction = {
   id: "f4e3464b-d5f8-41dd-baba-bfd4ef2e84b3",
   userId: touristId,
   destinationPhone: null,
@@ -67,6 +67,7 @@ const baseTransaction: Transaction = {
   exchangeRate: new Prisma.Decimal("129"),
   baseTxHash: null,
   darajaReceiptId: null,
+  darajaReceiverName: null,
   status: TransactionStatus.PENDING,
   createdAt: new Date("2026-01-01T10:00:00.000Z"),
   updatedAt: new Date("2026-01-01T10:00:00.000Z"),
@@ -124,7 +125,7 @@ describe("payment service", () => {
   ])("accepts exactly one destination %#", async (params) => {
     const result = await paymentService.initiatePayment(params);
 
-    expect(result.status).toBe(TransactionStatus.COMPLETED);
+    expect(result.status).toBe(TransactionStatus.CONVERTING);
     expect(prismaMock.transaction.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: touristId,

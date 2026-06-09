@@ -44,10 +44,24 @@ describe("PaymentProvider", () => {
   });
 
   it("submits an M-Pesa payment and completes after the success delay", async () => {
+    const pendingTransaction = {
+      amountKes: "500.00",
+      createdAt: "2026-06-09T10:00:00.000Z",
+      destinationPhone: "0712345678",
+      id: "payment-1",
+      status: "CONVERTING",
+    };
+    const completedTransaction = {
+      ...pendingTransaction,
+      darajaReceiptId: "RECEIPT-123",
+      darajaReceiverName: "254712345678 - Jane Doe",
+      status: "COMPLETED",
+    };
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(response({ id: "payment-1" }))
-      .mockResolvedValueOnce(response([]));
+      .mockResolvedValueOnce(response(pendingTransaction))
+      .mockResolvedValueOnce(response(completedTransaction))
+      .mockResolvedValue(response([]));
     vi.stubGlobal("fetch", fetchMock);
     const payments = renderContext(PaymentContext, PaymentProvider);
     const onComplete = vi.fn();
@@ -71,6 +85,7 @@ describe("PaymentProvider", () => {
     expect(deductKesAmount).toHaveBeenCalledWith("500");
     expect(refreshWalletData).toHaveBeenCalled();
     expect(payments.current.showSuccessModal).toBe(true);
+    expect(payments.current.completedTransaction?.darajaReceiptId).toBe("RECEIPT-123");
     expect(onComplete).not.toHaveBeenCalled();
 
     await act(async () => {

@@ -57,7 +57,7 @@ app.use("/api/auth", authRateLimiter, authRouter);
 app.use("/api/wallet", authenticateJWT, walletRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/payees", authenticateJWT, payeesRouter);
-app.use("/webhooks", mpesaRouter);
+app.use("/api/mpesa", mpesaRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ success: false, error: "Not Found" });

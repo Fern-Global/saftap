@@ -3,7 +3,8 @@
  * Handles all M-Pesa operations via Safaricom's Daraja API
  */
 
-import { TransactionStatus } from "@prisma/client";
+import { Prisma, TransactionStatus } from "@prisma/client";
+import { constants, publicEncrypt } from "node:crypto";
 import { env } from "../../config/env.js";
 import { AppError, wrapExternalError } from "../../lib/app-error.js";
 import { prisma } from "../../lib/prisma.js";
@@ -24,20 +25,27 @@ const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
 let cachedToken: CachedToken | null = null;
 
+type DarajaTransactionUpdate = Prisma.TransactionUncheckedUpdateInput & {
+  darajaReceiverName?: string | null;
+};
+
+function isSandbox(): boolean {
+  return new URL(env.DARAJA_BASE_URL).hostname.includes("sandbox");
+}
+
 function getDarajaUrl(path: string): string {
   return new URL(path, env.DARAJA_BASE_URL).toString();
 }
 
 function getCallbackUrl(): string {
   const baseUrl = env.WEBHOOK_BASE_URL ?? `http://localhost:${env.PORT}`;
-  return new URL("/webhooks/callback", baseUrl).toString();
+  return new URL("/api/mpesa/callback", baseUrl).toString();
 }
 
 function getB2cRecipient(phoneNumber: string): string {
   const requestedRecipient = phoneNumber.replace(/^\+/, "");
-  const isSandbox = new URL(env.DARAJA_BASE_URL).hostname === "sandbox.safaricom.co.ke";
 
-  return isSandbox && env.DARAJA_SANDBOX_B2C_MSISDN
+  return isSandbox() && env.DARAJA_SANDBOX_B2C_MSISDN
     ? env.DARAJA_SANDBOX_B2C_MSISDN
     : requestedRecipient;
 }
@@ -62,15 +70,12 @@ async function getAccessToken(): Promise<string> {
       `${env.DARAJA_CONSUMER_KEY}:${env.DARAJA_CONSUMER_SECRET}`
     ).toString("base64");
 
-    const response = await fetch(
-      getDarajaUrl("/oauth/v1/generate?grant_type=client_credentials"),
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Basic ${credentials}`,
-        },
-      }
-    );
+    const response = await fetch(getDarajaUrl("/oauth/v1/generate?grant_type=client_credentials"), {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`OAuth server returned ${response.status}`);
@@ -96,12 +101,60 @@ async function getAccessToken(): Promise<string> {
 
 /**
  * Encrypt password for Daraja requests
- * Uses the Safaricom sandbox security credentials
+ * Sandbox accepts the configured test credential. Live APIs require the
+ * initiator password encrypted with Safaricom's X.509 public certificate.
  */
 function encryptPassword(): string {
-  // In sandbox, we use the passkey directly. In production, this would be encrypted using RSA.
-  // For this implementation, we'll return the passkey as-is for sandbox
-  return Buffer.from(env.DARAJA_PASSKEY).toString("base64");
+  if (isSandbox()) {
+    return (
+      env.DARAJA_SANDBOX_SECURITY_CREDENTIAL ?? Buffer.from(env.DARAJA_PASSKEY).toString("base64")
+    );
+  }
+
+  const certificate = env.DARAJA_PUBLIC_CERTIFICATE?.replace(/\\n/g, "\n").trim();
+
+  if (!certificate) {
+    throw new AppError(
+      "DARAJA_PUBLIC_CERTIFICATE is required for live Daraja payments",
+      500,
+      "DARAJA_CERTIFICATE_MISSING"
+    );
+  }
+
+  try {
+    return publicEncrypt(
+      {
+        key: certificate,
+        padding: constants.RSA_PKCS1_PADDING,
+      },
+      Buffer.from(env.DARAJA_PASSKEY, "utf8")
+    ).toString("base64");
+  } catch (error) {
+    throw wrapExternalError(
+      "Failed to encrypt the Daraja security credential",
+      "DARAJA_CREDENTIAL_ENCRYPTION_ERROR",
+      error
+    );
+  }
+}
+
+function getResultParameter(
+  result: DarajaCallbackBody["Result"],
+  ...keys: string[]
+): string | number | boolean | undefined {
+  const parameters = result.ResultParameters?.ResultParameter ?? [];
+  const keySet = new Set(keys.map((key) => key.toLowerCase()));
+
+  return parameters.find((parameter) => keySet.has(parameter.Key.toLowerCase()))?.Value;
+}
+
+function asNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asAmount(value: unknown): number | undefined {
+  const amount = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : undefined;
 }
 
 /**
@@ -137,7 +190,7 @@ async function sendToMpesa(params: MpesaB2CParams): Promise<DarajaB2CResponse> {
       const providerError = await getDarajaError(response);
       const detail = providerError.errorMessage ?? `HTTP ${response.status}`;
       throw new AppError(
-        `M-Pesa sandbox rejected the payment: ${detail}`,
+        `M-Pesa rejected the payment: ${detail}`,
         422,
         providerError.errorCode ?? "DARAJA_B2C_REJECTED"
       );
@@ -196,7 +249,7 @@ async function sendToTill(params: MpesaB2BParams): Promise<DarajaB2BResponse> {
       const providerError = await getDarajaError(response);
       const detail = providerError.errorMessage ?? `HTTP ${response.status}`;
       throw new AppError(
-        `M-Pesa sandbox rejected the till payment: ${detail}`,
+        `M-Pesa rejected the till payment: ${detail}`,
         422,
         providerError.errorCode ?? "DARAJA_B2B_REJECTED"
       );
@@ -222,39 +275,50 @@ async function sendToTill(params: MpesaB2BParams): Promise<DarajaB2BResponse> {
  * Updates transaction status based on result code
  */
 async function handleCallback(body: DarajaCallbackBody): Promise<void> {
-  try {
-    if (!body.Result) {
-      throw new AppError("Invalid callback body: missing Result field", 400);
-    }
-
-    const { ResultCode, OriginatorConversationID, ReceiptNumber } = body.Result;
-
-    // Find transaction by the OriginatorConversationID (which we set to transactionId)
-    const transaction = await prisma.transaction.findUnique({
-      where: { id: OriginatorConversationID },
-    });
-
-    if (!transaction) {
-      // Transaction not found, but don't fail - just log it
-      console.warn(`Callback received for unknown transaction ID: ${OriginatorConversationID}`);
-      return;
-    }
-
-    // ResultCode 0 = Success, anything else is failure
-    const status = ResultCode === 0 ? TransactionStatus.COMPLETED : TransactionStatus.FAILED;
-
-    // Update transaction status
-    await prisma.transaction.update({
-      where: { id: OriginatorConversationID },
-      data: {
-        status,
-        darajaReceiptId: ReceiptNumber || undefined,
-      },
-    });
-  } catch (error) {
-    // Log error but don't throw - webhook handler must always succeed
-    console.error("Error processing Daraja callback:", error);
+  if (!body.Result) {
+    throw new AppError("Invalid callback body: missing Result field", 400);
   }
+
+  const { ResultCode, OriginatorConversationID, ReceiptNumber, TransactionID } = body.Result;
+
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: OriginatorConversationID },
+  });
+
+  if (!transaction) {
+    console.warn(`Callback received for unknown transaction ID: ${OriginatorConversationID}`);
+    return;
+  }
+
+  const isSuccessful = ResultCode === 0;
+  const receiptNumber =
+    asNonEmptyString(getResultParameter(body.Result, "TransactionReceipt", "ReceiptNumber")) ??
+    asNonEmptyString(ReceiptNumber) ??
+    asNonEmptyString(TransactionID);
+  const transactionAmount = asAmount(
+    getResultParameter(body.Result, "TransactionAmount", "Amount")
+  );
+  const receiverName = asNonEmptyString(
+    getResultParameter(body.Result, "ReceiverPartyPublicName", "ReceiverRegisteredCustomerName")
+  );
+
+  const updateData: DarajaTransactionUpdate = isSuccessful
+    ? {
+        status: TransactionStatus.COMPLETED,
+        ...(receiptNumber ? { darajaReceiptId: receiptNumber } : {}),
+        ...(transactionAmount !== undefined ? { amountKes: transactionAmount } : {}),
+        ...(receiverName ? { darajaReceiverName: receiverName } : {}),
+      }
+    : {
+        status: TransactionStatus.FAILED,
+        darajaReceiptId: null,
+        darajaReceiverName: null,
+      };
+
+  await prisma.transaction.update({
+    where: { id: OriginatorConversationID },
+    data: updateData,
+  });
 }
 
 /**

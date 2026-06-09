@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   await writeFile(envPath, setEnvValue(envContents, "WEBHOOK_BASE_URL", publicUrl));
 
   console.log(`Ngrok tunnel: ${publicUrl} -> http://localhost:${port}`);
-  console.log(`Daraja callback: ${publicUrl}/webhooks/callback`);
+  console.log(`Daraja callback: ${publicUrl}/api/mpesa/callback`);
   console.log("WEBHOOK_BASE_URL was updated in apps/backend/.env.");
   console.log("Start or restart the backend now, and keep this process running.");
 
