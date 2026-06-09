@@ -5,6 +5,8 @@ build/
 .expo/
 .expo-shared/
 coverage/
+.anvil/
+apps/backend/.anvil/
 
 .env
 .env.*

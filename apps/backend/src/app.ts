@@ -7,8 +7,9 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import { isMockCryptoWalletEnabled } from "./config/crypto-wallet.js";
+import { env } from "./config/env.js";
 import authRouter from "./modules/auth/auth.routes.js";
+import { adminRouter } from "./modules/admin/admin.routes.js";
 import { authenticateJWT } from "./modules/auth/auth.middleware.js";
 import { walletRouter } from "./modules/wallet/wallet.routes.js";
 import { paymentRouter } from "./modules/payment/payment.routes.js";
@@ -49,10 +50,12 @@ app.get("/health", (_request, response) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     version,
-    cryptoWalletMode: isMockCryptoWalletEnabled() ? "mock" : "real",
+    appEnv: env.APP_ENV,
+    walletProvider: env.APP_ENV === "production" ? "cdp" : "anvil",
   });
 });
 
+app.use("/admin", adminRouter);
 app.use("/api/auth", authRateLimiter, authRouter);
 app.use("/api/wallet", authenticateJWT, walletRouter);
 app.use("/api/payment", paymentRouter);

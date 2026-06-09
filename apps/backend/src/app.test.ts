@@ -6,6 +6,14 @@ const handleCallbackMock = vi.fn(async () => undefined);
 const getExchangeRateMock = vi.fn(async () => 129);
 const findTransactionMock = vi.fn();
 const verifyTokenMock = vi.fn(() => ({ userId: "user-123" }));
+const resetDemoDataMock = vi.fn(async () => undefined);
+
+vi.mock("./config/env.js", () => ({
+  env: {
+    ADMIN_API_KEY: "test-admin-api-key-that-is-long-enough",
+    APP_ENV: "demo",
+  },
+}));
 
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
@@ -34,6 +42,10 @@ vi.mock("./modules/payment/payment.service.js", () => ({
   },
 }));
 
+vi.mock("./demo/demo-data.service.js", () => ({
+  resetDemoData: resetDemoDataMock,
+}));
+
 const { app } = await import("./app.js");
 
 describe("backend app", () => {
@@ -47,11 +59,27 @@ describe("backend app", () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual(
       expect.objectContaining({
-        cryptoWalletMode: expect.stringMatching(/^(mock|real)$/),
+        appEnv: "demo",
         status: "ok",
         version: expect.any(String),
+        walletProvider: "anvil",
       })
     );
+  });
+
+  it("protects and runs the demo reset endpoint", async () => {
+    const unauthorized = await request(app).post("/admin/demo-reset");
+    const authorized = await request(app)
+      .post("/admin/demo-reset")
+      .set("Authorization", "Bearer test-admin-api-key-that-is-long-enough");
+
+    expect(unauthorized.status).toBe(401);
+    expect(authorized.status).toBe(200);
+    expect(authorized.body).toEqual({
+      success: true,
+      message: "Demo data reset complete",
+    });
+    expect(resetDemoDataMock).toHaveBeenCalledOnce();
   });
 
   it("returns 404 for unknown routes", async () => {
